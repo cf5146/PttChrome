@@ -1,4 +1,3 @@
-import { stringify } from "querystring";
 import { decode } from "base58";
 
 const noop = () => {};
@@ -166,13 +165,14 @@ registerImageUrlResolver({
     const [, flickrBase58Id, flickrPhotoId] = src.match(this.regex);
     const photoId = flickrBase58Id ? decode(flickrBase58Id) : flickrPhotoId;
 
-    const apiURL = `https://api.flickr.com/services/rest/?${stringify({
+    const params = new URLSearchParams({
       method: "flickr.photos.getInfo",
       api_key: "c8c95356e465b8d7398ff2847152740e",
-      photo_id: photoId,
+      photo_id: String(photoId),
       format: "json",
-      nojsoncallback: 1
-    })}`;
+      nojsoncallback: "1"
+    });
+    const apiURL = `https://api.flickr.com/services/rest/?${params.toString()}`;
     return fetch(apiURL, {
       mode: "cors"
     })
