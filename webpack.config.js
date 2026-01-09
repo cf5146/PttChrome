@@ -17,7 +17,7 @@ module.exports = {
     path: path.join(__dirname, 'dist/assets/'),
     publicPath: 'assets/',
     pathinfo: DEVELOPER_MODE,
-    filename: `[name]${ PRODUCTION_MODE ? '.[chunkhash]' : '' }.js`
+    filename: `[name]${ PRODUCTION_MODE ? '.[contenthash]' : '' }.js`
   },
   module: {
     rules: [
@@ -31,24 +31,26 @@ module.exports = {
         use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
       {
-        test: /\.(bin|bmp|png|woff)$/,
+        test: /\.(bmp|png)$/i,
         oneOf: [
           {
             resourceQuery: /inline/,
-            use: 'url-loader'
+            type: 'asset/inline',
           },
           {
-            use: [
-              {
-                loader: 'file-loader',
-                options: {
-                  name: '[name].[hash].[ext]',
-                  esModule: false,
-                }
-              }
-            ]
+            type: 'asset/resource',
+            generator: {
+              filename: '[name].[contenthash][ext]'
+            }
           }
         ]
+      },
+      {
+        test: /\.(bin|woff)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: '[name].[contenthash][ext]'
+        }
       }
     ]
   },
@@ -71,7 +73,7 @@ module.exports = {
       'process.env.DEVELOPER_MODE': JSON.stringify(DEVELOPER_MODE),
     }),
     new MiniCssExtractPlugin({
-      filename: '[name].[chunkhash].css',
+      filename: DEVELOPER_MODE ? '[name].css' : '[name].[contenthash].css',
       chunkFilename: '[id].css',
     }),
     new CssUrlRelativePlugin(),
