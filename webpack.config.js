@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 const webpack = require('webpack');
 const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
@@ -84,16 +84,10 @@ module.exports = {
       crossOrigin: 'anonymous',
       modules: [
         {
-          // jQuery must be loaded before bootstrap.
+          // jQuery is still required by the legacy terminal core.
           name: 'jquery',
           var: 'jQuery',
           path: 'dist/jquery.min.js',
-        },
-        {
-          name: 'bootstrap',
-          var: 'bootstrap',
-          path: 'dist/js/bootstrap.min.js',
-          style: 'dist/css/bootstrap.min.css',
         },
         {
           name: 'hammerjs',
