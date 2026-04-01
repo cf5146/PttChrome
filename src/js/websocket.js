@@ -16,10 +16,10 @@ Websocket.prototype._onOpen = function(e) {
 };
 
 Websocket.prototype._onMessage = function(e) {
-  var data = new Uint8Array(e.data);
+  let data = new Uint8Array(e.data);
   this.dispatchEvent(new CustomEvent('data', {
     detail: {
-      data: String.fromCharCode.apply(String, data)
+      data: String.fromCodePoint(...data)
     }
   }));
 };
@@ -36,10 +36,10 @@ Websocket.prototype.send = function(str) {
   // XXX: move this to app.
   // because ptt seems to reponse back slowly after large
   // chunk of text is pasted, so better to split it up.
-  var chunk = 1000;
-  for (var i = 0; i < str.length; i += chunk) {
-    var chunkStr = str.substring(i, i+chunk);
-    var byteArray = new Uint8Array(chunkStr.split('').map(function(x) { return x.charCodeAt(0); }));
+  let chunk = 1000;
+  for (let i = 0; i < str.length; i += chunk) {
+    let chunkStr = str.substring(i, i+chunk);
+    let byteArray = new Uint8Array(chunkStr.split('').map(function(x) { return x.codePointAt(0); }));
     this._conn.send(byteArray.buffer);
   }
 };
