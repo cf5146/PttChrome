@@ -1,0 +1,8 @@
+name = "pttchrome-relay"
+main = "index.js"
+compatibility_date = "2026-03-31"
+
+[vars]
+UPSTREAM_HTTP_URL = "https://ws.ptt.cc/bbs"
+UPSTREAM_ORIGIN = "https://term.ptt.cc"
+ALLOWED_ORIGIN = "https://robertabcd.github.io"
