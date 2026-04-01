@@ -1,7 +1,8 @@
-import { stringify } from "querystring";
 import { decode } from "base58";
 
 const noop = () => {};
+
+const stringifyQuery = params => new URLSearchParams(params).toString();
 
 export const of = src => Promise.resolve({ src });
 
@@ -166,7 +167,7 @@ registerImageUrlResolver({
     const [, flickrBase58Id, flickrPhotoId] = src.match(this.regex);
     const photoId = flickrBase58Id ? decode(flickrBase58Id) : flickrPhotoId;
 
-    const apiURL = `https://api.flickr.com/services/rest/?${stringify({
+    const apiURL = `https://api.flickr.com/services/rest/?${stringifyQuery({
       method: "flickr.photos.getInfo",
       api_key: "c8c95356e465b8d7398ff2847152740e",
       photo_id: photoId,

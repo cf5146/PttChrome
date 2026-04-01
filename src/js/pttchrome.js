@@ -8,7 +8,6 @@ import { TelnetConnection } from './telnet';
 import { Websocket } from './websocket';
 import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
-import { i18n } from './i18n';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
 import { setTimer } from './util';
 import PasteShortcutAlert from '../components/PasteShortcutAlert';
@@ -18,6 +17,24 @@ import ContextMenu from '../components/ContextMenu';
 function noop() {}
 
 const ANTI_IDLE_STR = '\x1b\x1b';
+const MOUSE_CURSOR_COMMANDS = {
+  0: '\x1b[D',
+  1: '\x1b[D',
+  2: '\x1b[5~',
+  3: '\x1b[6~',
+  4: '\x1b[1~',
+  5: '\x1b[4~',
+  8: '[',
+  9: ']',
+  10: '=',
+  12: '\x1b[D\r\x1b[4~',
+  13: '\x1b[D\r\x1b[4~[]',
+  14: '\x1b[D\x1b[4~[]\r',
+};
+const MOUSE_WHEEL_ACTIONS = {
+  up: ['none', 'doArrowUp', 'doPageUp', 'previousThread'],
+  down: ['none', 'doArrowDown', 'doPageDown', 'nextThread'],
+};
 
 export const App = function() {
 
@@ -29,9 +46,6 @@ export const App = function() {
   this.view = new TermView();
   this.buf = new TermBuf(80, 24);
   this.buf.setView(this.view);
-  //this.buf.severNotifyStr=this.getLM('messageNotify');
-  //this.buf.PTTZSTR1=this.getLM('PTTZArea1');
-  //this.buf.PTTZSTR2=this.getLM('PTTZArea2');
   this.view.setBuf(this.buf);
   this.view.setCore(this);
   this.parser = new AnsiParser(this.buf);
@@ -66,88 +80,85 @@ export const App = function() {
 
   this.endTurnsOnLiveUpdate = false;
   this.copyOnSelect = false;
-  var version = window.navigator.userAgent.match(/Chrom(e|ium)\/(\d+)\./);
+  const version = globalThis.navigator.userAgent.match(/Chrom(e|ium)\/(\d+)\./);
   if (version && version.length > 2) {
-    this.chromeVersion = parseInt(version[2], 10);
+    this.chromeVersion = Number.parseInt(version[2], 10);
   }
 
-  var self = this;
-
-  window.addEventListener('click', function(e) {
-    self.mouse_click(e);
+  globalThis.addEventListener('click', (e) => {
+    this.mouse_click(e);
   }, false);
 
-  window.addEventListener('mousedown', function(e) {
-    self.mouse_down(e);
+  globalThis.addEventListener('mousedown', (e) => {
+    this.mouse_down(e);
   }, false);
 
-  $(window).mousedown(function(e) {
-    var ret = self.middleMouse_down(e);
+  $(globalThis).mousedown((e) => {
+    const ret = this.middleMouse_down(e);
     if (ret === false) {
       return false;
     }
   });
 
-  window.addEventListener('mouseup', function(e) {
-    self.mouse_up(e);
+  globalThis.addEventListener('mouseup', (e) => {
+    this.mouse_up(e);
   }, false);
 
-  document.addEventListener('mousemove', function(e) {
-    self.mouse_move(e);
+  document.addEventListener('mousemove', (e) => {
+    this.mouse_move(e);
   }, false);
 
-  document.addEventListener('mouseover', function(e) {
-    self.mouse_over(e);
+  document.addEventListener('mouseover', (e) => {
+    this.mouse_over(e);
   }, false);
 
-  if ('onwheel' in window) {
-    window.addEventListener('wheel', function(e) {
-      self.mouse_scroll(e);
+  if ('onwheel' in globalThis) {
+    globalThis.addEventListener('wheel', (e) => {
+      this.mouse_scroll(e);
     }, true);
   } else {
-    window.addEventListener('mousewheel', function(e) {
-      self.mouse_scroll(e);
+    globalThis.addEventListener('mousewheel', (e) => {
+      this.mouse_scroll(e);
     }, true);
   }
 
-  window.addEventListener('focus', function(e) {
-    self.appFocused = true;
-    if (self.view.titleTimer) {
-      self.view.titleTimer.cancel();
-      self.view.titleTimer = null;
-      document.title = self.connectedUrl.site;
-      self.view.notif.close();
+  globalThis.addEventListener('focus', () => {
+    this.appFocused = true;
+    if (this.view.titleTimer) {
+      this.view.titleTimer.cancel();
+      this.view.titleTimer = null;
+      document.title = this.connectedUrl.site;
+      this.view.notif.close();
     }
   }, false);
 
-  window.addEventListener('blur', function(e) {
-    self.appFocused = false;
+  globalThis.addEventListener('blur', () => {
+    this.appFocused = false;
   }, false);
 
   this.strToCopy = null;
-  document.addEventListener('copy', function(e) {
-    self.onDOMCopy(e);
+  document.addEventListener('copy', (e) => {
+    this.onDOMCopy(e);
   });
-  this.inputArea.addEventListener('paste', function(e) {
-    self.onDOMPaste(e);
+  this.inputArea.addEventListener('paste', (e) => {
+    this.onDOMPaste(e);
   });
 
   this.view.innerBounds = this.getWindowInnerBounds();
   this.view.firstGridOffset = this.getFirstGridOffsets();
-  window.onresize = function() {
-    self.onWindowResize();
-  };
+  globalThis.addEventListener('resize', () => {
+    this.onWindowResize();
+  });
 
-  window.addEventListener('beforeunload', (e) => {
-    if (this.conn && this.conn.isConnected && this.buf.pageState != 0) {
-      e.returnValue = 'You are currently connected. Are you sure?';
-      return e.returnValue;
+  globalThis.addEventListener('beforeunload', (e) => {
+    if (this.conn?.isConnected && this.buf.pageState !== 0) {
+      e.preventDefault();
     }
   });
 
-  this.dblclickTimer=null;
-  this.mbTimer=null;
-  this.timerEverySec=null;
+  this.dblclickTimer = null;
+  this.mbTimer = null;
+  this.timerEverySec = null;
   this.pushthreadAutoUpdateCount = 0;
   this.maxPushthreadAutoUpdateCount = -1;
   this.onWindowResize();
@@ -161,20 +172,25 @@ export const App = function() {
 };
 
 App.prototype.isConnected = function() {
-  return this.connectState == 1 && !!this.conn;
+  return this.connectState === 1 && !!this.conn;
 };
 
 App.prototype.connect = function(url) {
   this.connectState = 0;
   console.log('connect: ' + url);
 
-  var parsed = this._parseURLSimple(url);
-  if (parsed.protocol == 'wsstelnet') {
+  const parsed = this._parseURLSimple(url);
+  if (!parsed) {
+    console.log('invalid connect url: ' + url);
+    return;
+  }
+
+  if (parsed.protocol === 'wsstelnet') {
     this._setupWebsocketConn('wss://' + parsed.hostname + parsed.path);
-  } else if (parsed.protocol == 'wstelnet') {
+  } else if (parsed.protocol === 'wstelnet') {
     this._setupWebsocketConn('ws://' + parsed.hostname + parsed.path);
   } else {
-    console.log('unsupport connect url protocol: ' + parser.protocol);
+    console.log('unsupport connect url protocol: ' + parsed.protocol);
     return;
   }
 
@@ -187,14 +203,14 @@ App.prototype.connect = function(url) {
 };
 
 App.prototype._parseURLSimple = function(url) {
-  var protocol = url.split(/:\/\//, 2);
-  if (protocol.length != 2)
+  const protocol = url.split(/:\/\//, 2);
+  if (protocol.length !== 2)
     return null;
-  var hostname = protocol[1].split(/\//, 2);
-  var hostport = hostname[0].split(/:/);
-  if (hostport > 2)
+  const hostname = protocol[1].split(/\//, 2);
+  const hostport = hostname[0].split(/:/);
+  if (hostport.length > 2)
     return null;
-  var port = hostport.length > 1 ? parseInt(hostport[1]) : {
+  const port = hostport.length > 1 ? Number.parseInt(hostport[1], 10) : {
     'wstelnet': 80,
     'wsstelnet': 443,
     'telnet': 23,
@@ -210,21 +226,20 @@ App.prototype._parseURLSimple = function(url) {
 };
 
 App.prototype._setupWebsocketConn = function(url) {
-  var wsConn = new Websocket(url);
+  const wsConn = new Websocket(url);
   this._attachConn(new TelnetConnection(wsConn));
 };
 
 App.prototype._attachConn = function(conn) {
-  var self = this;
   this.conn = conn;
   this.conn.addEventListener('open', this.onConnect.bind(this));
   this.conn.addEventListener('close', this.onClose.bind(this));
-  this.conn.addEventListener('data', function(e) {
-    self.onData(e.detail.data);
+  this.conn.addEventListener('data', (e) => {
+    this.onData(e.detail.data);
   });
-  this.conn.addEventListener('doNaws', function(e) {
+  this.conn.addEventListener('doNaws', () => {
     conn.sendWillNaws();
-    conn.sendNaws(self.buf.cols, self.buf.rows);
+    conn.sendNaws(this.buf.cols, this.buf.rows);
   });
 };
 
@@ -235,11 +250,10 @@ App.prototype.onConnect = function() {
   this.connectState = 1;
   this.updateTabIcon('connect');
   this.idleTime = 0;
-  var self = this;
-  this.timerEverySec = setTimer(true, function() {
-    self.antiIdle();
-    self.view.onBlink();
-    self.incrementCountToUpdatePushthread();
+  this.timerEverySec = setTimer(true, () => {
+    this.antiIdle();
+    this.view.onBlink();
+    this.incrementCountToUpdatePushthread();
   }, 1000);
 };
 
@@ -248,7 +262,7 @@ App.prototype.onData = function(data) {
 
   if (!this.appFocused && this.view.enableNotifications) {
     // parse received data for waterball
-    var wb = parseWaterball(b2u(data));
+    const wb = parseWaterball(b2u(data));
     if (wb) {
       if ('userId' in wb) {
         this.waterball.userId = wb.userId;
@@ -286,7 +300,7 @@ App.prototype.onClose = function() {
 };
 
 App.prototype.sendData = function(str) {
-  if (this.connectState == 1)
+  if (this.connectState === 1)
     this.conn.convSend(str);
 };
 
@@ -299,11 +313,10 @@ App.prototype.cancelMbTimer = function() {
 
 App.prototype.setMbTimer = function() {
   this.cancelMbTimer();
-  var _this = this;
-  this.mbTimer = setTimer(false, function() {
-    _this.mbTimer.cancel();
-    _this.mbTimer = null;
-    _this.CmdHandler.setAttribute('SkipMouseClick', '0');
+  this.mbTimer = setTimer(false, () => {
+    this.mbTimer.cancel();
+    this.mbTimer = null;
+    this.CmdHandler.setAttribute('SkipMouseClick', '0');
   }, 100);
 };
 
@@ -316,23 +329,21 @@ App.prototype.cancelDblclickTimer = function() {
 
 App.prototype.setDblclickTimer = function() {
   this.cancelDblclickTimer();
-  var _this = this;
-  this.dblclickTimer = setTimer(false, function() {
-    _this.dblclickTimer.cancel();
-    _this.dblclickTimer = null;
+  this.dblclickTimer = setTimer(false, () => {
+    this.dblclickTimer.cancel();
+    this.dblclickTimer = null;
   }, 350);
 };
 
 App.prototype.setInputAreaFocus = function() {
-  if (this.modalShown || (this.touch && this.touch.touchStarted))
+  if (this.modalShown || this.touch?.touchStarted)
     return;
-  //this.DocInputArea.disabled="";
   this.inputArea.focus();
 };
 
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
+// These hooks are injected by the context menu enhancer when enabled.
 App.prototype.onToggleLiveHelperModalState = noop;
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
+// These hooks are injected by the context menu enhancer when enabled.
 App.prototype.onDisableLiveHelperModalState = noop;
 
 App.prototype.switchToEasyReadingMode = function(doSwitch) {
@@ -341,7 +352,9 @@ App.prototype.switchToEasyReadingMode = function(doSwitch) {
     this.onDisableLiveHelperModalState();
     // clear the deep cloned copy of lines
     this.buf.pageLines = [];
-    if (this.buf.pageState == 3) this.view.conn.send('\x1b[D\x1b[C'); //this.view.conn.send('qr');
+    if (this.buf.pageState === 3) {
+      this.view.conn.send('\x1b[D\x1b[C');
+    }
   } else {
     this.view.mainContainer.style.paddingBottom = '';
     this.view.lastRowIndex = 22;
@@ -356,38 +369,45 @@ App.prototype.switchToEasyReadingMode = function(doSwitch) {
 
 App.prototype.doCopy = function(str) {
   if (str.indexOf('\x1b') < 0) {
-    str = str.replace(/\r\n/g, '\r');
-    str = str.replace(/\n/g, '\r');
-    str = str.replace(/ +\r/g, '\r');
+    str = str.replaceAll('\r\n', '\r');
+    str = str.replaceAll('\n', '\r');
+    str = str.replaceAll(/ +\r/g, '\r');
   }
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(str).catch(() => {
+      console.warn('Clipboard write failed.');
+    });
+    return;
+  }
+
   this.strToCopy = str;
-  document.execCommand('copy');
 };
 
 App.prototype.doCopyAnsi = function() {
   if (!this.lastSelection)
     return;
 
-  var selection = this.lastSelection;
-  var pageLines = null;
-  if (this.view.useEasyReadingMode && this.buf.pageState == 3) {
+  const selection = this.lastSelection;
+  let pageLines = null;
+  if (this.view.useEasyReadingMode && this.buf.pageState === 3) {
     pageLines = this.buf.pageLines;
   }
 
-  var ansiText = '';
-  if (selection.start.row == selection.end.row) {
+  let ansiText = '';
+  if (selection.start.row === selection.end.row) {
     ansiText += this.buf.getText(selection.start.row, selection.start.col, selection.end.col, true, true, false, pageLines);
   } else {
-    for (var i = selection.start.row; i <= selection.end.row; ++i) {
-      var scol = 0;
-      var ecol = this.buf.cols-1;
-      if (i == selection.start.row) {
+    for (let i = selection.start.row; i <= selection.end.row; ++i) {
+      let scol = 0;
+      let ecol = this.buf.cols - 1;
+      if (i === selection.start.row) {
         scol = selection.start.col;
-      } else if (i == selection.end.row) {
+      } else if (i === selection.end.row) {
         ecol = selection.end.col;
       }
       ansiText += this.buf.getText(i, scol, ecol, true, true, false, pageLines);
-      if (i != selection.end.row ) {
+      if (i !== selection.end.row) {
         ansiText += '\r';
       }
     }
@@ -406,7 +426,7 @@ App.prototype.onDOMCopy = function(e) {
 };
 
 App.prototype.doPaste = function() {
-  if (navigator.clipboard && navigator.clipboard.readText) {
+  if (navigator.clipboard?.readText) {
     navigator.clipboard.readText().then(
       (text) => this.onPasteDone(text),
       () => this.showPasteUnimplemented());
@@ -439,7 +459,6 @@ App.prototype.showPasteUnimplemented = function() {
 };
 
 App.prototype.onPasteDone = function(content) {
-  //this.conn.convSend(content);
   this.view.onTextInput(content, true);
 };
 
@@ -453,38 +472,40 @@ App.prototype.onDOMPaste = function(e) {
 
 App.prototype.onSymFont = function(content) {
   console.log("using " + (content ? "extension" : "system") + " font");
-  var font_src = content ? 'src: url('+content.data+');' : '';
-  var css = '@font-face { font-family: MingLiUNoGlyph; '+font_src+' }';
-  var style = document.createElement('style');
-  style.type = 'text/css';
+  const fontSrc = content ? 'src: url(' + content.data + ');' : '';
+  const css = '@font-face { font-family: MingLiUNoGlyph; ' + fontSrc + ' }';
+  const style = document.createElement('style');
   style.innerHTML = css;
   document.getElementsByTagName('head')[0].appendChild(style);
 };
 
 App.prototype.doSelectAll = function() {
-  window.getSelection().selectAllChildren(this.view.mainDisplay);
+  globalThis.getSelection().selectAllChildren(this.view.mainDisplay);
 };
 
 App.prototype.doSearchGoogle = function(searchTerm) {
-  window.open('http://google.com/search?q='+searchTerm);
+  globalThis.open('https://google.com/search?q=' + encodeURIComponent(searchTerm));
 };
 
 App.prototype.doOpenUrlNewTab = function(a) {
-  var e = document.createEvent('MouseEvents');
-  e.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, true, false, false, false, 0, null);
-  a.dispatchEvent(e);
+  const clickEvent = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    view: globalThis,
+    ctrlKey: true,
+  });
+  a.dispatchEvent(clickEvent);
 };
 
 App.prototype.incrementCountToUpdatePushthread = function(interval) {
-  if (this.maxPushthreadAutoUpdateCount == -1) {
+  if (this.maxPushthreadAutoUpdateCount === -1) {
     this.pushthreadAutoUpdateCount = 0;
     return;
   }
 
   if (++this.pushthreadAutoUpdateCount >= this.maxPushthreadAutoUpdateCount) {
     this.pushthreadAutoUpdateCount = 0;
-    if (this.buf.pageState == 3 || this.buf.pageState == 2) {
-      //this.view.conn.send('qrG');
+    if (this.buf.pageState === 3 || this.buf.pageState === 2) {
       this.view.conn.send('\x1b[D\x1b[C\x1b[4~');
     }
   }
@@ -512,7 +533,7 @@ App.prototype.onWindowResize = function() {
 };
 
 App.prototype.setTermSize = function(cols, rows) {
-  if (this.buf.cols == cols && this.buf.rows == rows) {
+  if (this.buf.cols === cols && this.buf.rows === rows) {
     return;
   }
 
@@ -523,42 +544,45 @@ App.prototype.setTermSize = function(cols, rows) {
 };
 
 App.prototype.switchMouseBrowsing = function() {
-  if (this.CmdHandler.getAttribute('useMouseBrowsing')=='1') {
+  if (this.CmdHandler.getAttribute('useMouseBrowsing') == '1') {
     this.CmdHandler.setAttribute('useMouseBrowsing', '0');
-    this.buf.useMouseBrowsing=false;
+    this.buf.useMouseBrowsing = false;
   } else {
     this.CmdHandler.setAttribute('useMouseBrowsing', '1');
-    this.buf.useMouseBrowsing=true;
+    this.buf.useMouseBrowsing = true;
   }
 
-  if (!this.buf.useMouseBrowsing) {
-    this.buf.BBSWin.style.cursor = 'auto';
-    this.buf.clearHighlight();
-    this.buf.mouseCursor=0;
-    this.buf.nowHighlight=-1;
-    this.buf.tempMouseCol=0;
-    this.buf.tempMouseRow=0;
-  } else {
+  if (this.buf.useMouseBrowsing) {
     this.buf.resetMousePos();
     this.view.redraw(true);
     this.view.updateCursorPos();
+    return;
   }
+
+  this.buf.BBSWin.style.cursor = 'auto';
+  this.buf.clearHighlight();
+  this.buf.mouseCursor = 0;
+  this.buf.nowHighlight = -1;
+  this.buf.tempMouseCol = 0;
+  this.buf.tempMouseRow = 0;
 };
 
 App.prototype.antiIdle = function() {
   if (this.antiIdleTime && this.idleTime > this.antiIdleTime) {
-    if (this.connectState == 1) {
+    if (this.connectState === 1) {
       this.conn.send(ANTI_IDLE_STR);
       this.idleTime = 0;
     }
-  } else {
-    if (this.connectState == 1)
-      this.idleTime += 1000;
+    return;
+  }
+
+  if (this.connectState === 1) {
+    this.idleTime += 1000;
   }
 };
 
 App.prototype.updateTabIcon = function(aStatus) {
-  var icon = require('../icon/logo.png');
+  let icon = require('../icon/logo.png');
   switch (aStatus) {
     case 'connect':
       icon = require('../icon/logo_connect.png');
@@ -571,22 +595,23 @@ App.prototype.updateTabIcon = function(aStatus) {
       break;
   }
 
-  var link = document.querySelector("link[rel~='icon']");
-  if (!link) {
-    link = document.createElement("link");
-    link.setAttribute("rel", "icon");
+  let link = document.querySelector("link[rel~='icon']");
+  if (link) {
     link.setAttribute("href", icon);
-    document.head.appendChild(link);
-  } else {
-    link.setAttribute("href", icon);
+    return;
   }
+
+  link = document.createElement("link");
+  link.setAttribute("rel", "icon");
+  link.setAttribute("href", icon);
+  document.head.appendChild(link);
 };
 
 // use this method to get better window size in case of page zoom != 100%
 App.prototype.getWindowInnerBounds = function() {
-  var width = document.documentElement.clientWidth - this.view.bbsViewMargin * 2;
-  var height = document.documentElement.clientHeight - this.view.bbsViewMargin * 2;
-  var bounds = {
+  const width = document.documentElement.clientWidth - this.view.bbsViewMargin * 2;
+  const height = document.documentElement.clientHeight - this.view.bbsViewMargin * 2;
+  const bounds = {
     width: width,
     height: height
   };
@@ -594,7 +619,7 @@ App.prototype.getWindowInnerBounds = function() {
 };
 
 App.prototype.getFirstGridOffsets = function() {
-  var container = $(".main")[0];
+  const container = $(".main")[0];
   return {
     top: container.offsetTop,
     left: container.offsetLeft
@@ -602,123 +627,76 @@ App.prototype.getFirstGridOffsets = function() {
 };
 
 App.prototype.clientToPos = function(cX, cY) {
-  var x;
-  var y;
-  var w = this.view.innerBounds.width;
-  var h = this.view.innerBounds.height;
-  if (this.view.scaleX != 1 || this.view.scaleY != 1) {
+  let x;
+  let y;
+  const w = this.view.innerBounds.width;
+  const h = this.view.innerBounds.height;
+  if (this.view.scaleX !== 1 || this.view.scaleY !== 1) {
     x = cX - ((w - (this.view.chw * this.buf.cols) * this.view.scaleX) / 2);
     y = cY - ((h - (this.view.chh * this.buf.rows) * this.view.scaleY) / 2);
   } else {
-    x = cX - parseFloat(this.view.firstGridOffset.left);
-    y = cY - parseFloat(this.view.firstGridOffset.top);
+    x = cX - Number.parseFloat(this.view.firstGridOffset.left);
+    y = cY - Number.parseFloat(this.view.firstGridOffset.top);
   }
-  var col = Math.floor(x / (this.view.chw * this.view.scaleX));
-  var row = Math.floor(y / (this.view.chh * this.view.scaleY));
+  let col = Math.floor(x / (this.view.chw * this.view.scaleX));
+  let row = Math.floor(y / (this.view.chh * this.view.scaleY));
 
   if (row < 0)
     row = 0;
-  else if (row >= this.buf.rows-1)
-    row = this.buf.rows-1;
+  else if (row >= this.buf.rows - 1)
+    row = this.buf.rows - 1;
 
   if (col < 0)
     col = 0;
-  else if (col >= this.buf.cols-1)
-    col = this.buf.cols-1;
+  else if (col >= this.buf.cols - 1)
+    col = this.buf.cols - 1;
 
-  return {col: col, row: row};
+  return { col: col, row: row };
 };
 
-App.prototype.onMouse_click = function (e) {
-  var cX = e.clientX, cY = e.clientY;
-  if (!this.conn || !this.conn.isConnected)
+App.prototype._buildRowMoveCommand = function(targetRow) {
+  const direction = this.buf.cur_y > targetRow ? '\x1b[A' : '\x1b[B';
+  const count = Math.abs(this.buf.cur_y - targetRow);
+  return direction.repeat(count) + '\r';
+};
+
+App.prototype._getMouseCursorCommand = function(cursor, cX, cY) {
+  if (cursor === 6) {
+    if (this.buf.nowHighlight === -1) {
+      return '';
+    }
+
+    return this._buildRowMoveCommand(this.buf.nowHighlight);
+  }
+
+  if (cursor === 7) {
+    const pos = this.clientToPos(cX, cY);
+    return this._buildRowMoveCommand(pos.row);
+  }
+
+  return MOUSE_CURSOR_COMMANDS[cursor] || '';
+};
+
+App.prototype.onMouse_click = function(e) {
+  const { clientX: cX, clientY: cY } = e;
+  if (!this.conn?.isConnected)
     return;
 
   // disable auto update pushthread if any command is issued;
   this.onDisableLiveHelperModalState();
 
-  // TODO make a responder stack.
   this.easyReading._onMouseClick(e);
   if (e.defaultPrevented)
     return;
 
-  // TODO Move this to mouse browsing module.
-  switch (this.buf.mouseCursor) {
-    case 1:
-      this.conn.send('\x1b[D');  //Arrow Left
-      break;
-    case 2:
-      this.conn.send('\x1b[5~'); //Page Up
-      break;
-    case 3:
-      this.conn.send('\x1b[6~'); //Page Down
-      break;
-    case 4:
-      this.conn.send('\x1b[1~'); //Home
-      break;
-    case 5:
-      this.conn.send('\x1b[4~'); //End
-      break;
-    case 6:
-      if (this.buf.nowHighlight != -1) {
-        var sendstr = '';
-        if (this.buf.cur_y > this.buf.nowHighlight) {
-          var count = this.buf.cur_y - this.buf.nowHighlight;
-          for (var i = 0; i < count; ++i)
-            sendstr += '\x1b[A'; //Arrow Up
-        } else if (this.buf.cur_y < this.buf.nowHighlight) {
-          var count = this.buf.nowHighlight - this.buf.cur_y;
-          for (var i = 0; i < count; ++i)
-            sendstr += '\x1b[B'; //Arrow Down
-        }
-        sendstr += '\r';
-        this.conn.send(sendstr);
-      }
-      break;
-    case 7:
-      var pos = this.clientToPos(cX, cY);
-      var sendstr = '';
-      if (this.buf.cur_y > pos.row) {
-        var count = this.buf.cur_y - pos.row;
-        for (var i = 0; i < count; ++i)
-          sendstr += '\x1b[A'; //Arrow Up
-      } else if (this.buf.cur_y < pos.row) {
-        var count = pos.row - this.buf.cur_y;
-        for (var i = 0; i < count; ++i)
-          sendstr += '\x1b[B'; //Arrow Down
-      }
-      sendstr += '\r';
-      this.conn.send(sendstr);
-      break;
-    case 0:
-      this.conn.send('\x1b[D'); //Arrow Left
-      break;
-    case 8:
-      this.conn.send('['); //Previous post with the same title
-      break;
-    case 9:
-      this.conn.send(']'); //Next post with the same title
-      break;
-    case 10:
-      this.conn.send('='); //First post with the same title
-      break;
-    case 12:
-      this.conn.send('\x1b[D\r\x1b[4~'); //Refresh post / pushed texts
-      break;
-    case 13:
-      this.conn.send('\x1b[D\r\x1b[4~[]'); //Last post with the same title (LIST)
-      break;
-    case 14:
-      this.conn.send('\x1b[D\x1b[4~[]\r'); //Last post with the same title (READING)
-      break;
-    default:
-      //do nothing
-      break;
+  const command = this._getMouseCursorCommand(this.buf.mouseCursor, cX, cY);
+  if (command) {
+    this.conn.send(command);
   }
 };
 
 App.prototype.onMouse_move = function(cX, cY) {
-  var pos = this.clientToPos(cX, cY);
+  const pos = this.clientToPos(cX, cY);
   this.buf.onMouse_move(pos.col, pos.row, false);
 };
 
@@ -728,30 +706,31 @@ App.prototype.resetMouseCursor = function(cX, cY) {
 };
 
 App.prototype.onValuesPrefChange = function(values) {
-  for (var name in values) {
+  Object.keys(values).forEach((name) => {
     this.onPrefChange(name, values[name]);
-  }
+  });
 
   // These prefs have to be processed as a whole.
   try {
     this.resizer = null;
 
     switch (values.termSizeMode) {
-      case 'fixed-term-size':
+      case 'fixed-term-size': {
         this.view.fontFitWindowWidth = values.fontFitWindowWidth;
 
-        let size = values.termSize;
+        const size = values.termSize;
         this.setTermSize(size.cols, size.rows);
         this.view.fontResize();
         this.view.redraw(true);
         break;
+      }
 
-      case 'fixed-font-size':
+      case 'fixed-font-size': {
         this.view.fontFitWindowWidth = false;
 
-        let fontSize = values.fontSize;
+        const fontSize = values.fontSize;
         this.resizer = () => {
-          let size = this.view.calcTermSizeFromFont(fontSize);
+          const size = this.view.calcTermSizeFromFont(fontSize);
           this.setTermSize(size.cols, size.rows);
           this.view.fixedResize(fontSize);
           this.view.redraw(true);
@@ -759,6 +738,7 @@ App.prototype.onValuesPrefChange = function(values) {
         // Immediately recalc once.
         this.resizer();
         break;
+      }
     }
 
     if (this.view.fontFitWindowWidth) {
@@ -766,25 +746,31 @@ App.prototype.onValuesPrefChange = function(values) {
     } else {
       $('.main').removeClass('trans-fix');
     }
-  } catch (e) {}
+  } catch (error) {
+    console.error('Failed to apply preference values.', error);
+  }
 };
 
 App.prototype.onPrefChange = function(name, value) {
   try {
     switch (name) {
     case 'useMouseBrowsing':
-      var useMouseBrowsing = value;
-      this.CmdHandler.setAttribute('useMouseBrowsing', useMouseBrowsing?'1':'0');
-      this.buf.useMouseBrowsing = useMouseBrowsing;
+      this.CmdHandler.setAttribute('useMouseBrowsing', value ? '1' : '0');
+      this.buf.useMouseBrowsing = value;
 
-      if (!this.buf.useMouseBrowsing) {
-        this.buf.BBSWin.style.cursor = 'auto';
-        this.buf.clearHighlight();
-        this.buf.mouseCursor = 0;
-        this.buf.nowHighlight = -1;
-        this.buf.tempMouseCol = 0;
-        this.buf.tempMouseRow = 0;
+      if (this.buf.useMouseBrowsing) {
+        this.buf.resetMousePos();
+        this.view.redraw(true);
+        this.view.updateCursorPos();
+        break;
       }
+
+      this.buf.BBSWin.style.cursor = 'auto';
+      this.buf.clearHighlight();
+      this.buf.mouseCursor = 0;
+      this.buf.nowHighlight = -1;
+      this.buf.tempMouseCol = 0;
+      this.buf.tempMouseRow = 0;
       this.buf.resetMousePos();
       this.view.redraw(true);
       this.view.updateCursorPos();
@@ -801,7 +787,7 @@ App.prototype.onPrefChange = function(name, value) {
       break;
     case 'mouseLeftFunction':
       this.view.leftButtonFunction = value;
-      if (typeof(this.view.leftButtonFunction) == 'boolean') {
+      if (typeof this.view.leftButtonFunction === 'boolean') {
         this.view.leftButtonFunction = this.view.leftButtonFunction ? 1:0;
       }
       break;
@@ -824,18 +810,12 @@ App.prototype.onPrefChange = function(name, value) {
       this.endTurnsOnLiveUpdate = value;
       break;
     case 'enablePicPreview':
-      // TODO: move this to ImagePreview.
       this.view.enablePicPreview = value;
       break;
     case 'enableNotifications':
       this.view.enableNotifications = value;
       break;
     case 'enableEasyReading':
-      /*if (this.connectedUrl.site == 'ptt.cc') {
-        this.view.useEasyReadingMode = value;
-      } else {
-        this.view.useEasyReadingMode = false;
-      }*/
       break;
     case 'antiIdleTime':
       this.antiIdleTime = value * 1000;
@@ -844,25 +824,24 @@ App.prototype.onPrefChange = function(name, value) {
       this.view.dbcsDetect = value;
       break;
     case 'lineWrap':
-      this.conn.lineWrap = value;
+      if (this.conn) {
+        this.conn.lineWrap = value;
+      }
       break;
-    case 'fontFace':
-      var fontFace = value;
-      if (!fontFace) 
-        fontFace='monospace';
+    case 'fontFace': {
+      const fontFace = value || 'monospace';
       this.view.setFontFace(fontFace);
       break;
+    }
     case 'bbsMargin':
-      var margin = value;
-      this.view.bbsViewMargin = margin;
+      this.view.bbsViewMargin = value;
       this.onWindowResize();
       break;
     default:
       break;
     }
-  } catch(e) {
-    // eats all errors
-    return;
+  } catch (error) {
+    console.error('Failed to apply preference change.', name, error);
   }
 };
 
@@ -874,158 +853,203 @@ App.prototype.checkClass = function(cn) {
       cn.indexOf("nonspan") >= 0 || cn.indexOf("nomouse_command") >= 0);
 };
 
+App.prototype._hasCollapsedSelection = function() {
+  return globalThis.getSelection().isCollapsed;
+};
+
+App.prototype._isIgnoredMouseTarget = function(target) {
+  if (target.className && this.checkClass(target.className)) {
+    return true;
+  }
+
+  return !!(target.tagName && target.tagName.indexOf('menuitem') >= 0);
+};
+
+App.prototype._handleConfiguredLeftClick = function(e) {
+  const leftButtonFunction = Number(this.view.leftButtonFunction);
+  if (leftButtonFunction === 1) {
+    this.setBBSCmd('doEnter');
+    e.preventDefault();
+    this.setInputAreaFocus();
+    return;
+  }
+
+  if (leftButtonFunction === 2) {
+    this.setBBSCmd('doRight');
+    e.preventDefault();
+    this.setInputAreaFocus();
+  }
+};
+
+App.prototype._handleMouseBrowsingClick = function(e, skipMouseClick) {
+  let shouldSendMouseCommand = !this._isIgnoredMouseTarget(e.target);
+  if (skipMouseClick) {
+    shouldSendMouseCommand = false;
+    const pos = this.clientToPos(e.clientX, e.clientY);
+    this.buf.onMouse_move(pos.col, pos.row, true);
+  }
+
+  if (!shouldSendMouseCommand) {
+    return;
+  }
+
+  this.onMouse_click(e);
+  this.setDblclickTimer();
+  e.preventDefault();
+  this.setInputAreaFocus();
+};
+
 App.prototype.mouse_click = function(e) {
   if (this.modalShown)
     return;
-  var skipMouseClick = (this.CmdHandler.getAttribute('SkipMouseClick') == '1');
-  this.CmdHandler.setAttribute('SkipMouseClick','0');
+  const skipMouseClick = this.CmdHandler.getAttribute('SkipMouseClick') === '1';
+  this.CmdHandler.setAttribute('SkipMouseClick', '0');
 
-  if (e.button == 2) { //right button
-  } else if (e.button === 0) { //left button
-    if ($(e.target).is('a') || $(e.target).parent().is('a')) {
-      return;
-    }
-    if (window.getSelection().isCollapsed) { //no anything be select
-      if (this.buf.useMouseBrowsing) {
-        var doMouseCommand = true;
-        if (e.target.className)
-          if (this.checkClass(e.target.className))
-            doMouseCommand = false;
-        if (e.target.tagName)
-          if(e.target.tagName.indexOf("menuitem") >= 0 )
-            doMouseCommand = false;
-        if (skipMouseClick) {
-          doMouseCommand = false;
-          var pos = this.clientToPos(e.clientX, e.clientY);
-          this.buf.onMouse_move(pos.col, pos.row, true);
-        }
-        if (doMouseCommand) {
-          this.onMouse_click(e);
-          this.setDblclickTimer();
-          e.preventDefault();
-          this.setInputAreaFocus();
-        }
-      } else if (this.view.leftButtonFunction) {
-        if (this.view.leftButtonFunction == 1) {
-          this.setBBSCmd('doEnter', this.CmdHandler);
-          e.preventDefault();
-          this.setInputAreaFocus();
-        } else if (this.view.leftButtonFunction == 2) {
-          this.setBBSCmd('doRight', this.CmdHandler);
-          e.preventDefault();
-          this.setInputAreaFocus();
-        }
-      }
-    }
-  } else if (e.button == 1) { //middle button
-  } else {
+  if (e.button !== 0) {
+    return;
+  }
+
+  if ($(e.target).is('a') || $(e.target).parent().is('a')) {
+    return;
+  }
+
+  if (!this._hasCollapsedSelection()) {
+    return;
+  }
+
+  if (this.buf.useMouseBrowsing) {
+    this._handleMouseBrowsingClick(e, skipMouseClick);
+    return;
+  }
+
+  if (this.view.leftButtonFunction) {
+    this._handleConfiguredLeftClick(e);
   }
 };
 
 App.prototype.middleMouse_down = function(e) {
   // moved to here because middle click works better with jquery
-  if (e.button == 1) {
-    if ($(e.target).is('a') || $(e.target).parent().is('a')) {
-      return;
-    }
-    if (this.view.middleButtonFunction == 1) {
-      this.conn.send('\r');
-      return false;
-    } else if (this.view.middleButtonFunction == 2) {
-      this.conn.send('\x1b[D');
-      return false;
-    } else if (this.view.middleButtonFunction == 3) {
-      this.doPaste();
-      return false;
-    }
+  if (e.button !== 1) {
+    return;
+  }
+
+  if ($(e.target).is('a') || $(e.target).parent().is('a')) {
+    return;
+  }
+
+  if (this.view.middleButtonFunction === 1) {
+    this.conn.send('\r');
+    return false;
+  }
+
+  if (this.view.middleButtonFunction === 2) {
+    this.conn.send('\x1b[D');
+    return false;
+  }
+
+  if (this.view.middleButtonFunction === 3) {
+    this.doPaste();
+    return false;
+  }
+};
+
+App.prototype._handleLeftMouseDown = function(e) {
+  if (this.buf.useMouseBrowsing && this.dblclickTimer) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.cancelBubble = true;
+  }
+
+  if (this.buf.useMouseBrowsing) {
+    this.setDblclickTimer();
+  }
+
+  this.mouseLeftButtonDown = true;
+  if (!this._hasCollapsedSelection()) {
+    this.CmdHandler.setAttribute('SkipMouseClick', '1');
   }
 };
 
 App.prototype.mouse_down = function(e) {
   if (this.modalShown)
     return;
-  //0=left button, 1=middle button, 2=right button
-  if (e.button === 0) {
-    if (this.buf.useMouseBrowsing) {
-      if (this.dblclickTimer) { //skip
-        e.preventDefault();
-        e.stopPropagation();
-        e.cancelBubble = true;
-      }
-      this.setDblclickTimer();
-    }
-    this.mouseLeftButtonDown = true;
-    //this.setInputAreaFocus();
-    if (!(window.getSelection().isCollapsed))
-      this.CmdHandler.setAttribute('SkipMouseClick','1');
 
-    var onbbsarea = true;
-    if (e.target.className)
-      if (this.checkClass(e.target.className))
-        onbbsarea = false;
-    if (e.target.tagName)
-      if (e.target.tagName.indexOf("menuitem") >= 0 )
-        onbbsarea = false;
-  } else if(e.button == 2) {
+  if (e.button === 0) {
+    this._handleLeftMouseDown(e);
+    return;
+  }
+
+  if (e.button === 2) {
     this.mouseRightButtonDown = true;
   }
+};
+
+App.prototype._getSelectionText = function() {
+  return globalThis.getSelection().toString().replaceAll('\u00a0', ' ');
+};
+
+App.prototype._handlePointerButtonUp = function(e) {
+  if (!this._hasCollapsedSelection()) {
+    if (this.copyOnSelect) {
+      this.doCopy(this._getSelectionText());
+    }
+    return;
+  }
+
+  if (this.buf.useMouseBrowsing) {
+    this.onMouse_move(e.clientX, e.clientY);
+  }
+
+  this.setInputAreaFocus();
+  if (e.button === 0 && !this._isIgnoredMouseTarget(e.target)) {
+    e.preventDefault();
+  }
+};
+
+App.prototype._scheduleInputAreaFocus = function() {
+  this.inputAreaFocusTimer = setTimer(false, () => {
+    clearTimeout(this.inputAreaFocusTimer);
+    this.inputAreaFocusTimer = null;
+    if (this._hasCollapsedSelection()) {
+      this.setInputAreaFocus();
+    }
+  }, 10);
 };
 
 App.prototype.mouse_up = function(e) {
   if (this.modalShown)
     return;
-  //0=left button, 1=middle button, 2=right button
+
   if (e.button === 0) {
     this.setMbTimer();
     this.mouseLeftButtonDown = false;
-  } else if (e.button == 2) {
+  } else if (e.button === 2) {
     this.mouseRightButtonDown = false;
   }
 
-  if (e.button === 0 || e.button == 2) { //left or right button
-    if (window.getSelection().isCollapsed) { //no anything be select
-      if (this.buf.useMouseBrowsing)
-        this.onMouse_move(e.clientX, e.clientY);
-
-      this.setInputAreaFocus();
-      if (e.button === 0) {
-        var preventDefault = true;
-        if (e.target.className)
-          if (this.checkClass(e.target.className))
-            preventDefault = false;
-        if (e.target.tagName)
-          if (e.target.tagName.indexOf("menuitem") >= 0 )
-            preventDefault = false;
-        if (preventDefault)
-          e.preventDefault();
-      }
-    } else { //something has be select
-      if (this.copyOnSelect) {
-        this.doCopy(window.getSelection().toString().replace(/\u00a0/g, " "));
-      }
-    }
+  if (e.button === 0 || e.button === 2) {
+    this._handlePointerButtonUp(e);
   } else {
     this.setInputAreaFocus();
     e.preventDefault();
   }
-  var _this = this;
-  this.inputAreaFocusTimer = setTimer(false, function() {
-    clearTimeout(_this.inputAreaFocusTimer);
-    _this.inputAreaFocusTimer = null;
-    if (window.getSelection().isCollapsed)
-      _this.setInputAreaFocus();
-  }, 10);
+
+  this._scheduleInputAreaFocus();
 };
 
 App.prototype.mouse_move = function(e) {
-  if (this.buf.useMouseBrowsing) {
-    if (window.getSelection().isCollapsed) {
-      if(!this.mouseLeftButtonDown)
-        this.onMouse_move(e.clientX, e.clientY);
-    } else
-      this.resetMouseCursor();
+  if (!this.buf.useMouseBrowsing) {
+    return;
   }
 
+  if (!this._hasCollapsedSelection()) {
+    this.resetMouseCursor();
+    return;
+  }
+
+  if (!this.mouseLeftButtonDown) {
+    this.onMouse_move(e.clientX, e.clientY);
+  }
 };
 
 App.prototype.mouse_over = function(e) {
@@ -1035,145 +1059,140 @@ App.prototype.mouse_over = function(e) {
   this.curX = e.clientX;
   this.curY = e.clientY;
 
-  if(window.getSelection().isCollapsed && !this.mouseLeftButtonDown)
+  if (this._hasCollapsedSelection() && !this.mouseLeftButtonDown)
     this.setInputAreaFocus();
+};
+
+App.prototype._getMouseWheelAction = function(isScrollingUp) {
+  const actions = isScrollingUp ? MOUSE_WHEEL_ACTIONS.up : MOUSE_WHEEL_ACTIONS.down;
+  if (this.mouseRightButtonDown) {
+    return actions[this.view.mouseWheelFunction2];
+  }
+
+  if (this.mouseLeftButtonDown) {
+    return actions[this.view.mouseWheelFunction3];
+  }
+
+  return actions[this.view.mouseWheelFunction1];
 };
 
 App.prototype.mouse_scroll = function(e) {
   if (this.modalShown) 
     return;
   // if in easyreading, use it like webpage
-  if (this.view.useEasyReadingMode && this.buf.pageState == 3) {
+  if (this.view.useEasyReadingMode && this.buf.pageState === 3) {
     return;
   }
 
-  // scroll = up/down
-  // hold right mouse key + scroll = page up/down
-  // hold left mouse key + scroll = thread prev/next
-  var mouseWheelActionsUp = [ 'none', 'doArrowUp', 'doPageUp', 'previousThread' ];
-  var mouseWheelActionsDown = [ 'none', 'doArrowDown', 'doPageDown', 'nextThread' ];
-
-  if (e.deltaY < 0 || e.wheelDelta > 0) { // scrolling up
-    if (this.mouseRightButtonDown) {
-      var action = mouseWheelActionsUp[this.view.mouseWheelFunction2];
-      this.setBBSCmd(action);
-    } else if (this.mouseLeftButtonDown) {
-      var action = mouseWheelActionsUp[this.view.mouseWheelFunction3];
-      this.setBBSCmd(action);
-    } else {
-      var action = mouseWheelActionsUp[this.view.mouseWheelFunction1];
-      this.setBBSCmd(action);
-    }
-  } else { // scrolling down
-    if (this.mouseRightButtonDown) {
-      var action = mouseWheelActionsDown[this.view.mouseWheelFunction2];
-      this.setBBSCmd(action);
-    } else if (this.mouseLeftButtonDown) {
-      var action = mouseWheelActionsDown[this.view.mouseWheelFunction3];
-      this.setBBSCmd(action);
-    } else {
-      var action = mouseWheelActionsDown[this.view.mouseWheelFunction1];
-      this.setBBSCmd(action);
-    }
-  }
-  
+  const isScrollingUp = e.deltaY < 0 || e.wheelDelta > 0;
+  this.setBBSCmd(this._getMouseWheelAction(isScrollingUp));
 
   e.stopPropagation();
   e.preventDefault();
 
-  if (this.mouseRightButtonDown) //prevent context menu popup
-    this.CmdHandler.setAttribute('doDOMMouseScroll','1');
-  if (this.mouseLeftButtonDown) {
-    if (this.buf.useMouseBrowsing) {
-      this.CmdHandler.setAttribute('SkipMouseClick','1');
-    }
+  if (this.mouseRightButtonDown) {
+    this.CmdHandler.setAttribute('doDOMMouseScroll', '1');
+  }
+
+  if (this.mouseLeftButtonDown && this.buf.useMouseBrowsing) {
+    this.CmdHandler.setAttribute('SkipMouseClick', '1');
   }
 };
 
-App.prototype.setBBSCmd = function setBBSCmd(cmd) {
-  switch (cmd) {
-    case "doArrowUp":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        if (this.view.mainDisplay.scrollTop === 0) {
-          this.easyReading.leaveCurrentPost();
-          this.conn.send('\x1b[D\x1b[A\x1b[C');
-        } else {
-          this.view.mainDisplay.scrollTop -= this.view.chh;
-        }
-      } else {
-        this.conn.send('\x1b[A');
-      }
-      break;
-    case "doArrowDown":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        if (this.view.mainDisplay.scrollTop >= this.view.mainContainer.clientHeight - this.view.chh * this.buf.rows) {
-          this.easyReading.leaveCurrentPost();
-          this.conn.send('\x1b[B');
-        } else {
-          this.view.mainDisplay.scrollTop += this.view.chh;
-        }
-      } else {
-        this.conn.send('\x1b[B');
-      }
-      break;
-    case "doPageUp":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        this.view.mainDisplay.scrollTop -= this.view.chh * this.easyReading._turnPageLines;
-      } else {
-        this.conn.send('\x1b[5~');
-      }
-      break;
-    case "doPageDown":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        this.view.mainDisplay.scrollTop += this.view.chh * this.easyReading._turnPageLines;
-      } else {
-        this.conn.send('\x1b[6~');
-      }
-      break;
-    case "previousThread":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        this.easyReading.leaveCurrentPost();
-        this.conn.send('[');
-      } else if (this.buf.pageState==2 || this.buf.pageState==3 || this.buf.pageState==4) {
-        this.conn.send('[');
-      }
-      break;
-    case "nextThread":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        this.easyReading.leaveCurrentPost();
-        this.conn.send(']');
-      } else if (this.buf.pageState==2 || this.buf.pageState==3 || this.buf.pageState==4) {
-        this.conn.send(']');
-      }
-      break;
-    case "doEnter":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        if (this.view.mainDisplay.scrollTop >= this.view.mainContainer.clientHeight - this.view.chh * this.buf.rows) {
-          this.easyReading.leaveCurrentPost();
-          this.conn.send('\r');
-        } else {
-          this.view.mainDisplay.scrollTop += this.view.chh;
-        }
-      } else {
-        this.conn.send('\r');
-      }
-      break;
-    case "doRight":
-      if (this.view.useEasyReadingMode && this.buf.startedEasyReading) {
-        if (this.view.mainDisplay.scrollTop >= this.view.mainContainer.clientHeight - this.view.chh * this.buf.rows) {
-          this.easyReading.leaveCurrentPost();
-          this.conn.send('\x1b[C');
-        } else {
-          this.view.mainDisplay.scrollTop += this.view.chh * this.easyReading._turnPageLines;
-        }
-      } else {
-        this.conn.send('\x1b[C');
-      }
-      break;
-    default:
-      break;
+App.prototype._isEasyReadingActive = function() {
+  return this.view.useEasyReadingMode && this.buf.startedEasyReading;
+};
+
+App.prototype._isEasyReadingAtBottom = function() {
+  return this.view.mainDisplay.scrollTop >= this.view.mainContainer.clientHeight - this.view.chh * this.buf.rows;
+};
+
+App.prototype._scrollEasyReading = function(lines) {
+  this.view.mainDisplay.scrollTop += this.view.chh * lines;
+};
+
+App.prototype._handleArrowUpCommand = function() {
+  if (!this._isEasyReadingActive()) {
+    this.conn.send('\x1b[A');
+    return;
   }
-}
+
+  if (this.view.mainDisplay.scrollTop === 0) {
+    this.easyReading.leaveCurrentPost();
+    this.conn.send('\x1b[D\x1b[A\x1b[C');
+    return;
+  }
+
+  this._scrollEasyReading(-1);
+};
+
+App.prototype._handleArrowDownCommand = function() {
+  if (!this._isEasyReadingActive()) {
+    this.conn.send('\x1b[B');
+    return;
+  }
+
+  if (this._isEasyReadingAtBottom()) {
+    this.easyReading.leaveCurrentPost();
+    this.conn.send('\x1b[B');
+    return;
+  }
+
+  this._scrollEasyReading(1);
+};
+
+App.prototype._handlePageCommand = function(command, lines) {
+  if (this._isEasyReadingActive()) {
+    this._scrollEasyReading(lines);
+    return;
+  }
+
+  this.conn.send(command);
+};
+
+App.prototype._handleThreadCommand = function(command) {
+  if (this._isEasyReadingActive()) {
+    this.easyReading.leaveCurrentPost();
+    this.conn.send(command);
+    return;
+  }
+
+  if ([2, 3, 4].includes(this.buf.pageState)) {
+    this.conn.send(command);
+  }
+};
+
+App.prototype._handleEnterLikeCommand = function(command, lines) {
+  if (!this._isEasyReadingActive()) {
+    this.conn.send(command);
+    return;
+  }
+
+  if (this._isEasyReadingAtBottom()) {
+    this.easyReading.leaveCurrentPost();
+    this.conn.send(command);
+    return;
+  }
+
+  this._scrollEasyReading(lines);
+};
+
+App.prototype.setBBSCmd = function setBBSCmd(cmd) {
+  const handlers = {
+    doArrowUp: () => this._handleArrowUpCommand(),
+    doArrowDown: () => this._handleArrowDownCommand(),
+    doPageUp: () => this._handlePageCommand('\x1b[5~', -this.easyReading._turnPageLines),
+    doPageDown: () => this._handlePageCommand('\x1b[6~', this.easyReading._turnPageLines),
+    previousThread: () => this._handleThreadCommand('['),
+    nextThread: () => this._handleThreadCommand(']'),
+    doEnter: () => this._handleEnterLikeCommand('\r', 1),
+    doRight: () => this._handleEnterLikeCommand('\x1b[C', this.easyReading._turnPageLines),
+  };
+  const handler = handlers[cmd];
+  if (handler) {
+    handler();
+  }
+};
 
 App.prototype.setupContextMenus = function() {
   ReactDOM.render(
