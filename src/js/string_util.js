@@ -55,7 +55,7 @@ export function wrapText(it, maxLen, enterChar) {
     // and then we can get the width by the length of the converted string
     var grouplen = splited[i].replace(/[^\x00-\x7f]/g,"  ")
                              .replace(/\t/g,"    ")
-                             .replace(/\r|\n/g,"")
+                             .replaceall(/\r|\n/g,"")
                              .length;
 
     if (splited[i] == '\r' || splited[i] == '\n')
