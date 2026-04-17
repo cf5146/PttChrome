@@ -1,6 +1,7 @@
 import cx from "classnames";
 import PropTypes from "prop-types";
 import React from "react";
+import { readValuesWithDefault, resetValues, writeValues } from "../../store";
 import {
   Modal,
   Tab,
@@ -18,49 +19,10 @@ import { i18n } from "../../js/i18n";
 import { getSafeExternalUrl } from "../../js/util";
 import "./PrefModal.css";
 
-const DEFAULT_PREFS = {
-  // general
-  //dbcsDetect    : false,
-  enablePicPreview: true,
-  enableNotifications: true,
-  enableEasyReading: false,
-  endTurnsOnLiveUpdate: false,
-  copyOnSelect: false,
-  antiIdleTime: 0,
-  lineWrap: 78,
-
-  // mouse browsing
-  useMouseBrowsing: false,
-  mouseBrowsingHighlight: true,
-  mouseBrowsingHighlightColor: 2,
-  mouseLeftFunction: 0,
-  mouseMiddleFunction: 0,
-  mouseWheelFunction1: 1,
-  mouseWheelFunction2: 2,
-  mouseWheelFunction3: 3,
-
-  // displays
-  fontFitWindowWidth: false,
-  fontFace: "MingLiu,SymMingLiu,monospace",
-  fontSize: 20,
-  termSize: { cols: 80, rows: 24 },
-  termSizeMode: "fixed-term-size",
-  bbsMargin: 0
-};
-
 const MOUSE_BROWSING_HIGHLIGHT_COLORS = Array.from(
   { length: 15 },
   (_, index) => index + 1
 );
-
-const PREF_STORAGE_KEY = "pttchrome.pref.v1";
-
-const createDefaultPrefs = () => ({
-  ...DEFAULT_PREFS,
-  termSize: {
-    ...DEFAULT_PREFS.termSize
-  }
-});
 
 const createReplacements = () => ({
   link_github_iamchucky: link("Chuck Yang", "https://github.com/iamchucky"),
@@ -78,42 +40,6 @@ const createReplacements = () => ({
     "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html"
   )
 });
-
-const readStoredValues = () => {
-  try {
-    const rawValue = globalThis.localStorage.getItem(PREF_STORAGE_KEY);
-    if (!rawValue) {
-      return null;
-    }
-
-    return JSON.parse(rawValue)?.values || null;
-  } catch (error) {
-    console.warn("readValuesWithDefault failed:", error);
-    return null;
-  }
-};
-
-export const readValuesWithDefault = () => {
-  return {
-    ...createDefaultPrefs(),
-    ...(readStoredValues() || {})
-  };
-};
-
-const writeValues = values => {
-  try {
-    globalThis.localStorage.setItem(
-      PREF_STORAGE_KEY,
-      JSON.stringify({
-        values
-      })
-    );
-  } catch (error) {
-    console.warn("writeValues failed:", error);
-  }
-
-  return values;
-};
 
 const replaceI18n = (id, replacements) => {
   return i18n(id)
@@ -179,11 +105,13 @@ export const PrefModal = ({ show, onSave, onReset }) => {
   }, [show]);
 
   const onCloseClick = () => {
-    onSave(writeValues(values));
+    const nextValues = writeValues(values);
+    setValues(nextValues);
+    onSave(nextValues);
   };
 
   const onResetClick = () => {
-    const nextValues = writeValues(createDefaultPrefs());
+    const nextValues = resetValues();
     setValues(nextValues);
     onReset(nextValues);
   };
@@ -561,7 +489,7 @@ export const PrefModal = ({ show, onSave, onReset }) => {
                 <Tab.Pane eventKey="about">
                   <div>
                     <legend>
-                      PttChrome
+                      PttChrome{" "}
                       <small> - {i18n("about_appName_subtitle")}</small>
                       <button
                         type="button"

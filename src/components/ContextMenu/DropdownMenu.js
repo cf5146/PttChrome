@@ -1,4 +1,5 @@
 import cx from "classnames";
+import PropTypes from "prop-types";
 import React from "react";
 import { i18n } from "../../js/i18n";
 import "./DropdownMenu.css";
@@ -74,7 +75,17 @@ const MenuItem = ({
   );
 };
 
+MenuItem.propTypes = {
+  divider: PropTypes.bool,
+  eventKey: PropTypes.string,
+  onSelect: PropTypes.func,
+  onClick: PropTypes.func,
+  className: PropTypes.string,
+  children: PropTypes.node
+};
+
 export const DropdownMenu = ({
+  open,
   pageX,
   pageY,
   urlEnabled,
@@ -108,7 +119,9 @@ export const DropdownMenu = ({
 
   return (
     <ul
-      className="dropdown-menu DropdownMenu--reset"
+      className={cx("dropdown-menu", "DropdownMenu--reset", {
+        show: open
+      })}
       ref={dropdownMenuRef}
       onContextMenu={onContextMenu}
     >
@@ -161,7 +174,6 @@ export const DropdownMenu = ({
                   "QuickSearchMenu--left": pageX > window.innerWidth * 0.7
                 }
               )}
-              role="menu"
             >
               {QUICK_SEARCH.providers.map(p => (
                 <MenuItem
@@ -204,6 +216,22 @@ export const DropdownMenu = ({
       <MenuItem onClick={onSettingsClick}>{i18n("cmenu_settings")}</MenuItem>
     </ul>
   );
+};
+
+DropdownMenu.propTypes = {
+  open: PropTypes.bool.isRequired,
+  pageX: PropTypes.number.isRequired,
+  pageY: PropTypes.number.isRequired,
+  urlEnabled: PropTypes.bool.isRequired,
+  normalEnabled: PropTypes.bool.isRequired,
+  selEnabled: PropTypes.bool.isRequired,
+  mouseBrowsingEnabled: PropTypes.bool.isRequired,
+  selectedText: PropTypes.string.isRequired,
+  onMenuSelect: PropTypes.func.isRequired,
+  onInputHelperClick: PropTypes.func.isRequired,
+  onLiveArticleHelperClick: PropTypes.func.isRequired,
+  onSettingsClick: PropTypes.func.isRequired,
+  onQuickSearchSelect: PropTypes.func.isRequired
 };
 
 export default DropdownMenu;

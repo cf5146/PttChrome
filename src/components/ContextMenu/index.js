@@ -359,6 +359,7 @@ export const ContextMenu = ({ pttchrome }) => {
         })}
       >
         <DropdownMenu
+          open={open}
           pageX={pageX}
           pageY={pageY}
           urlEnabled={urlEnabled}
