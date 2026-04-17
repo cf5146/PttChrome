@@ -7,7 +7,6 @@ import {
   Button as BootstrapButton,
   Form,
   Nav as BootstrapNav,
-  OverlayTrigger,
   Popover as BootstrapPopover,
   Tooltip as BootstrapTooltip
 } from "react-bootstrap";
@@ -66,9 +65,13 @@ export const Checkbox = ({ children, ...props }) => (
 export const FormGroup = Form.Group;
 export const ControlLabel = Form.Label;
 
-export const FormControl = ({ componentClass, as, ...props }) => (
-  <Form.Control as={componentClass || as} {...props} />
+export const FormControl = React.forwardRef(
+  ({ componentClass, as, ...props }, ref) => (
+    <Form.Control ref={ref} as={componentClass || as} {...props} />
+  )
 );
+
+FormControl.displayName = "FormControl";
 
 export const Tooltip = ({ id, children, ...props }) => (
   <BootstrapTooltip id={id || "tooltip"} {...props}>
@@ -88,8 +91,8 @@ export {
   Fade,
   Modal,
   NavDropdown,
+  OverlayTrigger,
   Row,
   SplitButton,
   Tab
 } from "react-bootstrap";
-export { OverlayTrigger };
