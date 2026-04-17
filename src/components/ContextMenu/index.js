@@ -8,8 +8,6 @@ import InputHelperModal from "./InputHelperModal";
 import LiveHelperModal from "./LiveHelperModal";
 import PrefModal from "./PrefModal";
 
-function noop() {}
-
 const EVENT_KEY_BY_HOT_KEY = {
   ["C".codePointAt(0)]: "copy",
   ["E".codePointAt(0)]: "copyLinkUrl",
@@ -313,36 +311,6 @@ export const ContextMenu = ({ pttchrome }) => {
       bbsWindow.removeEventListener("contextmenu", onContextMenu, true);
     };
   }, [onContextMenu, onHide, onMenuSelect]);
-
-  React.useEffect(() => {
-    if (liveHelperEnabled) {
-      pttchrome.onToggleLiveHelperModalState = () => {
-        const {
-          liveHelperEnabled: enabled,
-          liveHelperSec: sec
-        } = useContextMenuStore.getState();
-
-        onLiveHelperChange({
-          enabled: !enabled,
-          sec
-        });
-      };
-      pttchrome.onDisableLiveHelperModalState = () => {
-        onLiveHelperChange({
-          enabled: false,
-          sec: useContextMenuStore.getState().liveHelperSec
-        });
-      };
-    } else {
-      pttchrome.onToggleLiveHelperModalState = noop;
-      pttchrome.onDisableLiveHelperModalState = noop;
-    }
-
-    return () => {
-      pttchrome.onToggleLiveHelperModalState = noop;
-      pttchrome.onDisableLiveHelperModalState = noop;
-    };
-  }, [liveHelperEnabled, onLiveHelperChange, pttchrome]);
 
   return (
     <React.Fragment>

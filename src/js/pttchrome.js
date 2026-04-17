@@ -8,7 +8,12 @@ import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
 import { Modal } from '../components/bootstrap-compat';
 import { renderReactElement, unmountReactElement } from './react_roots';
-import { readValuesWithDefault, subscribePreferenceValues } from '../store';
+import {
+  readLiveHelperState,
+  readValuesWithDefault,
+  subscribePreferenceValues,
+  writeLiveHelperState
+} from '../store';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
 import { setTimer, openExternalUrl, createGoogleSearchUrl, escapeCssUrl } from './util';
 import PasteShortcutAlert from '../components/PasteShortcutAlert';
@@ -335,10 +340,31 @@ App.prototype.setInputAreaFocus = function() {
   this.inputArea.focus();
 };
 
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
-App.prototype.onToggleLiveHelperModalState = noop;
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
-App.prototype.onDisableLiveHelperModalState = noop;
+App.prototype.onToggleLiveHelperModalState = function() {
+  const liveHelperState = readLiveHelperState();
+  if (!liveHelperState.enabled) {
+    return;
+  }
+
+  this.setAutoPushthreadUpdate(-1);
+  writeLiveHelperState({
+    enabled: false,
+    sec: liveHelperState.sec
+  });
+};
+
+App.prototype.onDisableLiveHelperModalState = function() {
+  const liveHelperState = readLiveHelperState();
+  if (!liveHelperState.enabled) {
+    return;
+  }
+
+  this.setAutoPushthreadUpdate(-1);
+  writeLiveHelperState({
+    enabled: false,
+    sec: liveHelperState.sec
+  });
+};
 
 App.prototype.switchToEasyReadingMode = function(doSwitch) {
   this.easyReading.leaveCurrentPost();

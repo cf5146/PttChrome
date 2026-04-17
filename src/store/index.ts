@@ -220,6 +220,11 @@ type LiveHelperState = {
   liveHelperSec: number;
 };
 
+export type LiveHelperValues = {
+  enabled: boolean;
+  sec: number;
+};
+
 type OpenMenuState = Omit<MenuState, 'open'>;
 
 export type ContextMenuStore = MenuState &
@@ -337,3 +342,19 @@ export const useContextMenuStore = create<ContextMenuStore>()(set => ({
 
   resetContextMenuState: () => set(() => createInitialState())
 }));
+
+export const readLiveHelperState = (): LiveHelperValues => {
+  const { liveHelperEnabled, liveHelperSec } = useContextMenuStore.getState();
+
+  return {
+    enabled: liveHelperEnabled,
+    sec: liveHelperSec
+  };
+};
+
+export const writeLiveHelperState = (
+  nextState: LiveHelperValues
+): LiveHelperValues => {
+  useContextMenuStore.getState().setLiveHelperState(nextState);
+  return nextState;
+};
