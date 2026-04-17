@@ -10,7 +10,7 @@ import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
 import { i18n } from './i18n';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
-import { setTimer } from './util';
+import { setTimer, openExternalUrl, createGoogleSearchUrl, escapeCssUrl } from './util';
 import PasteShortcutAlert from '../components/PasteShortcutAlert';
 import ConnectionAlert from '../components/ConnectionAlert';
 import ContextMenu from '../components/ContextMenu';
@@ -453,11 +453,11 @@ App.prototype.onDOMPaste = function(e) {
 
 App.prototype.onSymFont = function(content) {
   console.log("using " + (content ? "extension" : "system") + " font");
-  var font_src = content ? 'src: url('+content.data+');' : '';
+  var font_src = content ? 'src: url("' + escapeCssUrl(content.data) + '");' : '';
   var css = '@font-face { font-family: MingLiUNoGlyph; '+font_src+' }';
   var style = document.createElement('style');
   style.type = 'text/css';
-  style.innerHTML = css;
+  style.textContent = css;
   document.getElementsByTagName('head')[0].appendChild(style);
 };
 
@@ -466,13 +466,15 @@ App.prototype.doSelectAll = function() {
 };
 
 App.prototype.doSearchGoogle = function(searchTerm) {
-  window.open('http://google.com/search?q='+searchTerm);
+  openExternalUrl(createGoogleSearchUrl(searchTerm));
 };
 
 App.prototype.doOpenUrlNewTab = function(a) {
-  var e = document.createEvent('MouseEvents');
-  e.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, true, false, false, false, 0, null);
-  a.dispatchEvent(e);
+  if (!a) {
+    return;
+  }
+
+  openExternalUrl(a.getAttribute('href') || a.href);
 };
 
 App.prototype.incrementCountToUpdatePushthread = function(interval) {

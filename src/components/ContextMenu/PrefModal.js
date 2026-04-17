@@ -17,6 +17,7 @@ import {
   Popover
 } from "react-bootstrap";
 import { i18n } from "../../js/i18n";
+import { getSafeExternalUrl } from "../../js/util";
 import "./PrefModal.css";
 
 const DEFAULT_PREFS = {
@@ -93,11 +94,19 @@ const replaceI18n = (id, replacements) => {
     });
 };
 
-const link = (text, url) => (
-  <a href={url} target="_blank" rel="noreferrer">
-    {text}
-  </a>
-);
+const link = (text, url) => {
+  const safeUrl = getSafeExternalUrl(url);
+
+  if (!safeUrl) {
+    return text;
+  }
+
+  return (
+    <a href={safeUrl} target="_blank" rel="noopener noreferrer">
+      {text}
+    </a>
+  );
+};
 
 const changeNestedValue = (obj, key, newValue) => {
   let i = key.indexOf(".");
