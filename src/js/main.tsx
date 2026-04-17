@@ -1,7 +1,9 @@
 import { App } from './pttchrome';
 import { setupI18n } from './i18n';
-import { renderReactElement, unmountReactElement } from './react_roots';
+import AppAlertHost from '../components/AppAlertHost';
+import { renderReactElement } from './react_roots';
 import { ALLOW_SITE_IN_QUERY, DEFAULT_SITE, DEVELOPER_MODE } from './runtime_env';
+import { writeRuntimeAlert } from '../store';
 import { getQueryVariable } from './util';
 
 const b2uTableUrl = new URL('../conv/b2u_table.bin', import.meta.url).href;
@@ -12,28 +14,18 @@ function showDeveloperModeAlert() {
     return;
   }
 
-  import('../components/DeveloperModeAlert')
-    .then(({ DeveloperModeAlert }) => {
-      const container = document.getElementById('reactAlert');
-      if (!container) {
-        return;
-      }
-
-      const onDismiss = () => {
-        unmountReactElement(container);
-      };
-
-      renderReactElement(container, <DeveloperModeAlert onDismiss={onDismiss} />);
-    })
-    .catch(error => {
-      console.error('showDeveloperModeAlert failed:', error);
-    });
+  writeRuntimeAlert('developerMode');
 }
 
 function startApp() {
   setupI18n();
 
   const app = new App();
+  const alertContainer = document.getElementById('reactAlert');
+
+  if (alertContainer) {
+    renderReactElement(alertContainer, <AppAlertHost app={app} />);
+  }
 
   showDeveloperModeAlert();
 

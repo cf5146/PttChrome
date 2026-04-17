@@ -4,7 +4,11 @@ import {
   parseReqNotMetText,
   parseStatusRow
 } from './string_util';
-import { readValuesWithDefault, subscribePreferenceValues } from '../store';
+import {
+  readConnectedUrl,
+  readValuesWithDefault,
+  subscribePreferenceValues
+} from '../store';
 
 export function EasyReading(core, view, termBuf) {
   this._core = core;
@@ -50,7 +54,7 @@ EasyReading.prototype._onChanged = function(e) {
       this._termBuf.pageState == 3 &&
       !this._enabled && 
       values.enableEasyReading &&
-      this._core.connectedUrl.easyReadingSupported)
+      readConnectedUrl().easyReadingSupported)
   {
     this._enabled = true;
   } else if (!values.enableEasyReading) {

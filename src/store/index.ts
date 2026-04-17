@@ -195,6 +195,109 @@ export const resetValues = (): PreferenceValues => {
   return nextValues;
 };
 
+export type ConnectedUrl = {
+  url: string;
+  site: string;
+  port: number;
+  easyReadingSupported: boolean;
+};
+
+export type RuntimeAlertKind =
+  | 'connection'
+  | 'developerMode'
+  | 'pasteShortcut'
+  | null;
+
+type AppRuntimeState = {
+  connectState: number;
+  connectedUrl: ConnectedUrl;
+  activeAlert: RuntimeAlertKind;
+  setRuntimeState: (nextState: {
+    connectState?: number;
+    connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null;
+    activeAlert?: RuntimeAlertKind;
+  }) => void;
+  setActiveAlert: (activeAlert: RuntimeAlertKind) => void;
+};
+
+const hasOwnProperty = (value: object, key: PropertyKey): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
+
+const createDefaultConnectedUrl = (): ConnectedUrl => ({
+  url: '',
+  site: '',
+  port: 0,
+  easyReadingSupported: true
+});
+
+const normalizeConnectedUrl = (
+  connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null
+): ConnectedUrl => {
+  const nextConnectedUrl = connectedUrl || undefined;
+
+  return {
+    ...createDefaultConnectedUrl(),
+    ...nextConnectedUrl
+  };
+};
+
+export const useAppRuntimeStore = create<AppRuntimeState>()(set => ({
+  connectState: 2,
+  connectedUrl: createDefaultConnectedUrl(),
+  activeAlert: null,
+
+  setRuntimeState: nextState =>
+    set(state => ({
+      connectState: hasOwnProperty(nextState, 'connectState')
+        ? nextState.connectState
+        : state.connectState,
+      connectedUrl: hasOwnProperty(nextState, 'connectedUrl')
+        ? normalizeConnectedUrl(nextState.connectedUrl)
+        : state.connectedUrl,
+      activeAlert: hasOwnProperty(nextState, 'activeAlert')
+        ? nextState.activeAlert
+        : state.activeAlert
+    })),
+
+  setActiveAlert: activeAlert =>
+    set(() => ({
+      activeAlert
+    }))
+}));
+
+export const readConnectionState = () => {
+  const { connectState, connectedUrl, activeAlert } =
+    useAppRuntimeStore.getState();
+
+  return {
+    connectState,
+    connectedUrl: normalizeConnectedUrl(connectedUrl),
+    activeAlert
+  };
+};
+
+export const readConnectedUrl = (): ConnectedUrl =>
+  normalizeConnectedUrl(useAppRuntimeStore.getState().connectedUrl);
+
+export const writeConnectionState = (nextState: {
+  connectState?: number;
+  connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null;
+  activeAlert?: RuntimeAlertKind;
+}) => {
+  useAppRuntimeStore.getState().setRuntimeState(nextState);
+  return readConnectionState();
+};
+
+export const isAppConnected = (): boolean =>
+  useAppRuntimeStore.getState().connectState === 1;
+
+export const writeRuntimeAlert = (
+  activeAlert: RuntimeAlertKind
+): RuntimeAlertKind => {
+  useAppRuntimeStore.getState().setActiveAlert(activeAlert);
+  return activeAlert;
+};
+
 type ContextMenuTarget = HTMLAnchorElement | null;
 
 type MenuState = {
@@ -213,6 +316,7 @@ type ModalState = {
   showsInputHelper: boolean;
   showsLiveArticleHelper: boolean;
   showsSettings: boolean;
+  runtimeModalOpen: boolean;
 };
 
 type LiveHelperState = {
@@ -238,6 +342,7 @@ export type ContextMenuStore = MenuState &
     hideLiveArticleHelper: () => void;
     showSettings: () => void;
     hideSettings: () => void;
+    setRuntimeModalOpen: (isOpen: boolean) => void;
     setLiveHelperState: (nextState: {
       enabled: boolean;
       sec: number;
@@ -260,7 +365,8 @@ const createMenuState = (): MenuState => ({
 const createModalState = (): ModalState => ({
   showsInputHelper: false,
   showsLiveArticleHelper: false,
-  showsSettings: false
+  showsSettings: false,
+  runtimeModalOpen: false
 });
 
 const createLiveHelperState = (): LiveHelperState => ({
@@ -334,6 +440,11 @@ export const useContextMenuStore = create<ContextMenuStore>()(set => ({
       showsSettings: false
     })),
 
+  setRuntimeModalOpen: isOpen =>
+    set(() => ({
+      runtimeModalOpen: isOpen
+    })),
+
   setLiveHelperState: nextState =>
     set(() => ({
       liveHelperEnabled: nextState.enabled,
@@ -361,3 +472,24 @@ export const writeLiveHelperState = (
 
 export const isContextMenuOpen = (): boolean =>
   useContextMenuStore.getState().open;
+
+export const isAnyModalOpen = (): boolean => {
+  const {
+    showsInputHelper,
+    showsLiveArticleHelper,
+    showsSettings,
+    runtimeModalOpen
+  } = useContextMenuStore.getState();
+
+  return (
+    showsInputHelper ||
+    showsLiveArticleHelper ||
+    showsSettings ||
+    runtimeModalOpen
+  );
+};
+
+export const writeRuntimeModalOpen = (isOpen: boolean): boolean => {
+  useContextMenuStore.getState().setRuntimeModalOpen(isOpen);
+  return isOpen;
+};

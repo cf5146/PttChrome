@@ -30,7 +30,6 @@ const menuHandlerByEventKey = {
 };
 
 const onPrefSaveImpl = pttchrome => {
-  pttchrome.modalShown = false;
   pttchrome.setInputAreaFocus();
   pttchrome.switchToEasyReadingMode(pttchrome.view.useEasyReadingMode);
 };
@@ -156,7 +155,6 @@ export const ContextMenu = ({ pttchrome }) => {
     event => {
       event.stopPropagation();
       pttchrome.onDisableLiveHelperModalState();
-      pttchrome.modalShown = true;
       showSettings();
     },
     [pttchrome, showSettings]

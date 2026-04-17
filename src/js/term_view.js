@@ -4,7 +4,7 @@ import { TermKeyboard } from './term_keyboard';
 import { termInvColors } from './term_buf';
 import { renderRowHtml, renderScreen } from './term_ui';
 import { i18n } from './i18n';
-import { isContextMenuOpen } from '../store';
+import { isContextMenuOpen, readConnectedUrl } from '../store';
 import { setTimer } from './util';
 import { wrapText, u2b, parseStatusRow } from './string_util';
 
@@ -705,6 +705,7 @@ TermView.prototype = {
       return;
     }
     var app = this.bbscore;
+    var connectedSite = readConnectedUrl().site;
     //console.log('message from ' + this.waterball.userId + ': ' + this.waterball.message); 
     var title = app.waterball.userId + ' ' + i18n('notification_said');
     if (this.titleTimer) {
@@ -712,10 +713,10 @@ TermView.prototype = {
       this.titleTimer = null;
     }
     this.titleTimer = setTimer(true, function() {
-      if (document.title == app.connectedUrl.site) {
+      if (document.title == connectedSite) {
         document.title = title + ' ' + app.waterball.message;
       } else {
-        document.title = app.connectedUrl.site;
+        document.title = connectedSite;
       }
     }, 1500);
     var options = {
