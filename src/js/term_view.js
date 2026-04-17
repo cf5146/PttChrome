@@ -10,6 +10,7 @@ import { wrapText, u2b, parseStatusRow } from './string_util';
 const ENTER_CHAR = '\r';
 const ESC_CHAR = '\x15'; // Ctrl-U
 const DEFINE_INPUT_BUFFER_SIZE = 12;
+const notificationIcon = new URL('../icon/icon_128.png', import.meta.url).href;
 
 export function TermView() {
   //new pref - start
@@ -717,7 +718,7 @@ TermView.prototype = {
       }
     }, 1500);
     var options = {
-      icon: require('../icon/icon_128.png'),
+      icon: notificationIcon,
       body: app.waterball.message,
       tag: app.waterball.userId
     };

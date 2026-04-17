@@ -18,6 +18,9 @@ import ContextMenu from '../components/ContextMenu';
 function noop() {}
 
 const ANTI_IDLE_STR = '\x1b\x1b';
+const tabIconDefault = new URL('../icon/logo.png', import.meta.url).href;
+const tabIconConnect = new URL('../icon/logo_connect.png', import.meta.url).href;
+const tabIconDisconnect = new URL('../icon/logo_disconnect.png', import.meta.url).href;
 
 export const App = function() {
 
@@ -560,14 +563,14 @@ App.prototype.antiIdle = function() {
 };
 
 App.prototype.updateTabIcon = function(aStatus) {
-  var icon = require('../icon/logo.png');
+  var icon = tabIconDefault;
   switch (aStatus) {
     case 'connect':
-      icon = require('../icon/logo_connect.png');
+      icon = tabIconConnect;
       this.setInputAreaFocus();
       break;
     case 'disconnect':
-      icon = require('../icon/logo_disconnect.png');
+      icon = tabIconDisconnect;
       break;
     default:
       break;

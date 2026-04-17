@@ -25,6 +25,17 @@ const termColors = [
   '#ffffff'  // white
 ];
 
+const cursorBack = new URL('../cursor/back.png', import.meta.url).href;
+const cursorPageUp = new URL('../cursor/pageup.png', import.meta.url).href;
+const cursorPageDown = new URL('../cursor/pagedown.png', import.meta.url).href;
+const cursorHome = new URL('../cursor/home.png', import.meta.url).href;
+const cursorEnd = new URL('../cursor/end.png', import.meta.url).href;
+const cursorPrevious = new URL('../cursor/prevous.png', import.meta.url).href;
+const cursorNext = new URL('../cursor/next.png', import.meta.url).href;
+const cursorFirst = new URL('../cursor/first.png', import.meta.url).href;
+const cursorRefresh = new URL('../cursor/refresh.png', import.meta.url).href;
+const cursorLast = new URL('../cursor/last.png', import.meta.url).href;
+
 export const termInvColors = [
   // dark
   '#FFFFFF', // black
@@ -48,20 +59,20 @@ export const termInvColors = [
 
 const mouseCursorMap = [
   'auto',                                               // 0
-  `url(${require('../cursor/back.png')} 0 6,auto`,      // 1
-  `url(${require('../cursor/pageup.png')} 6 0,auto`,    // 2
-  `url(${require('../cursor/pagedown.png')} 6 21,auto`, // 3
-  `url(${require('../cursor/home.png')} 0 0,auto`,      // 4
-  `url(${require('../cursor/end.png')} 0 0,auto`,       // 5
+  `url(${cursorBack} 0 6,auto`,                         // 1
+  `url(${cursorPageUp} 6 0,auto`,                       // 2
+  `url(${cursorPageDown} 6 21,auto`,                    // 3
+  `url(${cursorHome} 0 0,auto`,                         // 4
+  `url(${cursorEnd} 0 0,auto`,                          // 5
   'pointer',                                            // 6
   'default',                                            // 7
-  `url(${require('../cursor/prevous.png')} 6 0,auto`,   // 8
-  `url(${require('../cursor/next.png')} 6 0,auto`,      // 9
-  `url(${require('../cursor/first.png')} 0 0,auto`,     // 10
+  `url(${cursorPrevious} 6 0,auto`,                     // 8
+  `url(${cursorNext} 6 0,auto`,                         // 9
+  `url(${cursorFirst} 0 0,auto`,                        // 10
   'auto',                                               // 11
-  `url(${require('../cursor/refresh.png')} 0 0,auto`,   // 12
-  `url(${require('../cursor/last.png')} 0 0,auto`,      // 13
-  `url(${require('../cursor/last.png')} 0 0,auto`       // 14
+  `url(${cursorRefresh} 0 0,auto`,                      // 12
+  `url(${cursorLast} 0 0,auto`,                         // 13
+  `url(${cursorLast} 0 0,auto`                          // 14
 ];
 
 function TermChar(ch) {
