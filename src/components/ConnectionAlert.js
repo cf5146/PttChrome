@@ -1,6 +1,7 @@
 import React from "react";
+import PropTypes from "prop-types";
 import { compose, lifecycle } from "recompose";
-import { Alert, Button, Fade } from "react-bootstrap";
+import { Alert, Button } from "react-bootstrap";
 import { i18n } from "../js/i18n";
 import "./PageTopAlert.css";
 
@@ -12,29 +13,31 @@ const enhance = compose(
           this.props.onDismiss();
         }
         // Kills everything becase we don't want any further action performed under ConnectionAlert status
-        event.preventDefault();
-        event.stopImmediatePropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
       };
-      window.addEventListener("keydown", this.handler, true);
+      globalThis.addEventListener("keydown", this.handler, true);
     },
     componentWillUnmount() {
-      window.removeEventListener("keydown", this.handler, true);
+      globalThis.removeEventListener("keydown", this.handler, true);
     }
   })
 );
 
 export const ConnectionAlert = ({ onDismiss }) => (
-  <Fade in>
-    <Alert bsStyle="danger" className="PageTopAlert" onDismiss={onDismiss}>
-      <h4>{i18n("alert_connectionHeader")}</h4>
-      <p>{i18n("alert_connectionText")}</p>
-      <p>
-        <Button bsStyle="danger" onClick={onDismiss}>
-          {i18n("alert_connectionReconnect")}
-        </Button>
-      </p>
-    </Alert>
-  </Fade>
+  <Alert bsStyle="danger" className="PageTopAlert" onDismiss={onDismiss}>
+    <h4>{i18n("alert_connectionHeader")}</h4>
+    <p>{i18n("alert_connectionText")}</p>
+    <p>
+      <Button bsStyle="danger" onClick={onDismiss}>
+        {i18n("alert_connectionReconnect")}
+      </Button>
+    </p>
+  </Alert>
 );
+
+ConnectionAlert.propTypes = {
+  onDismiss: PropTypes.func.isRequired
+};
 
 export default enhance(ConnectionAlert);
