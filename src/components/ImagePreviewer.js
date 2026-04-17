@@ -9,6 +9,9 @@ export const of = src => Promise.resolve({ src });
 export const resolveSrcToImageUrl = ({ src }) =>
   imageUrlResolvers.find(r => r.test(src)).request(src);
 
+export const createInlineImagePreviewRequest = src =>
+  of(src).then(resolveSrcToImageUrl);
+
 export const resolveWithImageDOM = ({ src }) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -20,6 +23,9 @@ export const resolveWithImageDOM = ({ src }) =>
     img.onerror = reject;
     img.src = src;
   });
+
+export const createHoverImagePreviewRequest = src =>
+  createInlineImagePreviewRequest(src).then(resolveWithImageDOM);
 
 export const ImagePreviewer = ({ component: Component, request, ...props }) => {
   const [result, setResult] = React.useState({

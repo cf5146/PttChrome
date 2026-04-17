@@ -2,9 +2,7 @@ import PropTypes from "prop-types";
 import React from "react";
 import Row from "./Row";
 import ImagePreviewer, {
-  of,
-  resolveSrcToImageUrl,
-  resolveWithImageDOM
+  createHoverImagePreviewRequest
 } from "./ImagePreviewer";
 
 export const Screen = React.forwardRef(function Screen(props, ref) {
@@ -68,9 +66,7 @@ export const Screen = React.forwardRef(function Screen(props, ref) {
       top: event.clientY
     });
     setCurrentImagePreview(
-      of(event.currentTarget.href)
-        .then(resolveSrcToImageUrl)
-        .then(resolveWithImageDOM)
+      createHoverImagePreviewRequest(event.currentTarget.href)
     );
   };
 

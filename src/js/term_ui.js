@@ -17,10 +17,13 @@ export class ColorState {
   }
 }
 
-/**
- * @deprecated
- */
-export function renderRowHtml(chars, row, forceWidth, enableLinkInlinePreview, cont) {
+export function renderRowElement(
+  chars,
+  row,
+  forceWidth,
+  enableLinkInlinePreview,
+  cont
+) {
   renderReactElement(
     cont,
     <Row
@@ -31,6 +34,8 @@ export function renderRowHtml(chars, row, forceWidth, enableLinkInlinePreview, c
     />
   );
 }
+
+export const renderRowHtml = renderRowElement;
 
 export function renderScreen(lines, forceWidth, enableLinkInlinePreview, enableLinkHoverPreview, cont) {
   return renderScreenElement(

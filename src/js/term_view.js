@@ -2,7 +2,7 @@
 
 import { TermKeyboard } from './term_keyboard';
 import { termInvColors } from './term_buf';
-import { renderRowHtml, renderScreen } from './term_ui';
+import { renderRowElement, renderScreen } from './term_ui';
 import { i18n } from './i18n';
 import { isContextMenuOpen, readConnectedUrl } from '../store';
 import { setTimer } from './util';
@@ -808,21 +808,22 @@ TermView.prototype = {
     for (var i in lines) {
       var line = lines[i];
       var el = document.createElement('span');
-      el.setAttribute('type', 'bbsrow');
-      el.setAttribute('srow', this.mainContainer.childNodes.length);
+      var rowIndex = this.mainContainer.childNodes.length;
+      el.setAttribute('data-type', 'bbsrow');
+      el.setAttribute('data-srow', rowIndex);
       this.mainContainer.appendChild(el);
-      renderRowHtml(
-        line, this.mainContainer.childNodes.length, this.chh,
+      renderRowElement(
+        line, rowIndex, this.chh,
         showsLinkPreview, el);
     }
   },
 
   renderSingleRow: function(target, row) {
     var el = document.createElement('span');
-    el.setAttribute('type', 'bbsrow');
-    el.setAttribute('srow', '0');
+    el.setAttribute('data-type', 'bbsrow');
+    el.setAttribute('data-srow', '0');
     target.appendChild(el);
-    return renderRowHtml(row, 0, this.chh, false, el);
+    return renderRowElement(row, 0, this.chh, false, el);
   },
 
   hideEasyReading: function() {

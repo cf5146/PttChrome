@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { getSafeExternalUrl } from "../../js/util";
 
 export const HyperLink = ({
@@ -34,6 +35,15 @@ export const HyperLink = ({
       {inner}
     </a>
   );
+};
+
+HyperLink.propTypes = {
+  col: PropTypes.number.isRequired,
+  row: PropTypes.number.isRequired,
+  href: PropTypes.string,
+  inner: PropTypes.node.isRequired,
+  onMouseOver: PropTypes.func,
+  onMouseOut: PropTypes.func
 };
 
 export default HyperLink;
