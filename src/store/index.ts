@@ -358,3 +358,6 @@ export const writeLiveHelperState = (
   useContextMenuStore.getState().setLiveHelperState(nextState);
   return nextState;
 };
+
+export const isContextMenuOpen = (): boolean =>
+  useContextMenuStore.getState().open;

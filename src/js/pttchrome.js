@@ -160,7 +160,6 @@ export const App = function() {
   this.maxPushthreadAutoUpdateCount = -1;
   this.onWindowResize();
   this.setupContextMenus();
-  this.contextMenuShown = false;
   this._unsubscribePreferenceValues = subscribePreferenceValues(values => {
     this.onValuesPrefChange(values);
   });

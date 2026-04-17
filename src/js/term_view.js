@@ -4,6 +4,7 @@ import { TermKeyboard } from './term_keyboard';
 import { termInvColors } from './term_buf';
 import { renderRowHtml, renderScreen } from './term_ui';
 import { i18n } from './i18n';
+import { isContextMenuOpen } from '../store';
 import { setTimer } from './util';
 import { wrapText, u2b, parseStatusRow } from './string_util';
 
@@ -125,7 +126,7 @@ export function TermView() {
     this.onInput(e);
   }, false);
 
-  let shouldAcceptInput = () => !this.bbscore.modalShown && !this.bbscore.contextMenuShown;
+  let shouldAcceptInput = () => !this.bbscore.modalShown && !isContextMenuOpen();
   let keyEventFilter = (e) => {
     // On both Mac and Windows, control/alt+key will be sent as original key
     // code even under IME.
@@ -304,7 +305,7 @@ TermView.prototype = {
   },
 
   onInput: function(e) {
-    if (this.bbscore.modalShown || this.bbscore.contextMenuShown)
+    if (this.bbscore.modalShown || isContextMenuOpen())
       return;
     if (this.isComposition) {
       // beginning chrome 55, we no longer can update input buffer width on compositionupdate

@@ -77,7 +77,6 @@ export const ContextMenu = ({ pttchrome }) => {
       return;
     }
 
-    pttchrome.contextMenuShown = false;
     closeMenu();
   }, [closeMenu, pttchrome]);
 
@@ -88,7 +87,6 @@ export const ContextMenu = ({ pttchrome }) => {
         useContextMenuStore.getState()
       );
       event.stopPropagation();
-      pttchrome.contextMenuShown = false;
       closeMenu();
     },
     [closeMenu, pttchrome]
@@ -107,8 +105,6 @@ export const ContextMenu = ({ pttchrome }) => {
         CmdHandler.setAttribute("doDOMMouseScroll", "0");
         return;
       }
-
-      pttchrome.contextMenuShown = true;
 
       const selection = globalThis.getSelection();
       if (!selection || selection.isCollapsed) {
@@ -143,7 +139,6 @@ export const ContextMenu = ({ pttchrome }) => {
   const onInputHelperClick = React.useCallback(
     event => {
       event.stopPropagation();
-      pttchrome.contextMenuShown = false;
       showInputHelper();
     },
     [pttchrome, showInputHelper]
@@ -152,7 +147,6 @@ export const ContextMenu = ({ pttchrome }) => {
   const onLiveArticleHelperClick = React.useCallback(
     event => {
       event.stopPropagation();
-      pttchrome.contextMenuShown = false;
       showLiveArticleHelper();
     },
     [pttchrome, showLiveArticleHelper]
@@ -161,7 +155,6 @@ export const ContextMenu = ({ pttchrome }) => {
   const onSettingsClick = React.useCallback(
     event => {
       event.stopPropagation();
-      pttchrome.contextMenuShown = false;
       pttchrome.onDisableLiveHelperModalState();
       pttchrome.modalShown = true;
       showSettings();
@@ -176,7 +169,6 @@ export const ContextMenu = ({ pttchrome }) => {
         .join(encodeURIComponent(useContextMenuStore.getState().selectedText));
       openExternalUrl(url);
       event.stopPropagation();
-      pttchrome.contextMenuShown = false;
       closeMenu();
     },
     [closeMenu, pttchrome]
