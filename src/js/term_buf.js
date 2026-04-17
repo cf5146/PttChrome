@@ -471,7 +471,7 @@ TermBuf.prototype = {
             var urlTemp2 = urlTemp.toLowerCase();
             line[uri[0]].startOfURL = true;
             if (urlTemp2.substr(0,6) == 'pid://') {
-              line[uri[0]].fullurl='http://www.pixiv.net/member_illust.php?mode=big&illust_id='+urlTemp2.substr(6,15);
+              line[uri[0]].fullurl='https://www.pixiv.net/member_illust.php?mode=big&illust_id='+urlTemp2.slice(6, 21);
             } else {
               //var g = encodeURI(u);
               //line[uri[0]].fullurl=g;

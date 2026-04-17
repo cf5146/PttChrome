@@ -4,6 +4,7 @@ import React from "react";
 import { compose, withStateHandlers, withProps, lifecycle } from "recompose";
 import { MenuItem } from "react-bootstrap";
 import { i18n } from "../../js/i18n";
+import { openExternalUrl } from "../../js/util";
 import DropdownMenu from "./DropdownMenu";
 import InputHelperModal from "./InputHelperModal";
 import LiveHelperModal from "./LiveHelperModal";
@@ -163,8 +164,8 @@ const enhance = compose(
       eventKey,
       event
     ) => {
-      const url = eventKey.replace("%s", selectedText);
-      window.open(url);
+      const url = eventKey.split("%s").join(encodeURIComponent(selectedText));
+      openExternalUrl(url);
       event.stopPropagation();
       pttchrome.contextMenuShown = false;
       return initialState;

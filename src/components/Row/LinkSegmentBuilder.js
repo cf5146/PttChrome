@@ -32,10 +32,10 @@ export class LinkSegmentBuilder {
       this.segs.push(
         <HyperLink
           key={this.col}
+          col={this.col}
+          row={this.row}
           href={this.href}
           inner={element}
-          data-scol={this.col}
-          data-srow={this.row}
           onMouseOver={this.onHyperLinkMouseOver}
           onMouseOut={this.onHyperLinkMouseOut}
         />
