@@ -1,5 +1,6 @@
 import { App } from './pttchrome';
 import { setupI18n } from './i18n';
+import { renderReactElement, unmountReactElement } from './react_roots';
 import { ALLOW_SITE_IN_QUERY, DEFAULT_SITE, DEVELOPER_MODE } from './runtime_env';
 import { getQueryVariable } from './util';
 import { readValuesWithDefault } from '../components/ContextMenu/PrefModal';
@@ -20,13 +21,10 @@ function showDeveloperModeAlert() {
       }
 
       const onDismiss = () => {
-        ReactDOM.unmountComponentAtNode(container);
+        unmountReactElement(container);
       };
 
-      ReactDOM.render(
-        <DeveloperModeAlert onDismiss={onDismiss} />,
-        container
-      );
+      renderReactElement(container, <DeveloperModeAlert onDismiss={onDismiss} />);
     })
     .catch(error => {
       console.error('showDeveloperModeAlert failed:', error);

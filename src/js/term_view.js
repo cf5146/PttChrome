@@ -281,7 +281,7 @@ TermView.prototype = {
         }
       } else {
         this.componentScreen = renderScreen(
-          /* For Screen#componentWillReceiveProps */lines.slice(),
+          /* Reset hover preview when line references change. */lines.slice(),
           this.chh,
           /* showsLinkPreview */false,
           this.enablePicPreview,

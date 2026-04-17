@@ -18,7 +18,6 @@ declare global {
     jQuery: JQueryStatic;
     Hammer: typeof import('hammerjs');
     React: typeof import('react');
-    ReactDOM: typeof import('react-dom');
     lib: PttChrome.LibTables | undefined;
   }
 
@@ -26,7 +25,6 @@ declare global {
   var jQuery: JQueryStatic;
   var Hammer: typeof import('hammerjs');
   var React: typeof import('react');
-  var ReactDOM: typeof import('react-dom');
   var lib: PttChrome.LibTables | undefined;
 }
 

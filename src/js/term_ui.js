@@ -1,5 +1,6 @@
 import Row from "../components/Row";
 import Screen from "../components/Screen";
+import { renderReactElement, renderScreenElement } from "./react_roots";
 
 export class ColorState {
   constructor(fg, bg, blink) {
@@ -20,23 +21,25 @@ export class ColorState {
  * @deprecated
  */
 export function renderRowHtml(chars, row, forceWidth, enableLinkInlinePreview, cont) {
-  return ReactDOM.render(
+  renderReactElement(
+    cont,
     <Row
       chars={chars}
       row={row}
       forceWidth={forceWidth}
       enableLinkInlinePreview={enableLinkInlinePreview}
-    />,
-    cont
+    />
   );
 }
 
 export function renderScreen(lines, forceWidth, enableLinkInlinePreview, enableLinkHoverPreview, cont) {
-  return ReactDOM.render(
+  return renderScreenElement(
+    cont,
     <Screen
       lines={lines}
       forceWidth={forceWidth}
       enableLinkInlinePreview={enableLinkInlinePreview}
       enableLinkHoverPreview={enableLinkHoverPreview}
-    />, cont);
+    />
+  );
 }

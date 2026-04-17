@@ -1,6 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { Alert, Button } from "react-bootstrap";
+import { Alert, Button } from "./bootstrap-compat";
 import { i18n } from "../js/i18n";
 import "./PageTopAlert.css";
 

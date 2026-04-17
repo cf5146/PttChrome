@@ -1,6 +1,4 @@
 ﻿// Main Program
-import BaseModal from 'react-overlays/lib/Modal';
-import { Fade, Modal } from "react-bootstrap";
 import { AnsiParser } from './ansi_parser';
 import { TermView } from './term_view';
 import { TermBuf } from './term_buf';
@@ -8,7 +6,8 @@ import { TelnetConnection } from './telnet';
 import { Websocket } from './websocket';
 import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
-import { i18n } from './i18n';
+import { Modal } from '../components/bootstrap-compat';
+import { renderReactElement, unmountReactElement } from './react_roots';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
 import { setTimer, openExternalUrl, createGoogleSearchUrl, escapeCssUrl } from './util';
 import PasteShortcutAlert from '../components/PasteShortcutAlert';
@@ -277,14 +276,11 @@ App.prototype.onClose = function() {
   this.idleTime = 0;
 
   const onDismiss = () => {
-    ReactDOM.unmountComponentAtNode(container);
+    unmountReactElement(container);
     this.connect(this.connectedUrl.url);
   }
   const container = document.getElementById('reactAlert');
-  ReactDOM.render(
-    <ConnectionAlert onDismiss={onDismiss} />,
-    container
-  );
+  renderReactElement(container, <ConnectionAlert onDismiss={onDismiss} />);
   this.updateTabIcon('disconnect');
 };
 
@@ -421,22 +417,16 @@ App.prototype.doPaste = function() {
 App.prototype.showPasteUnimplemented = function() {
   const container = document.getElementById('reactAlert')
   const onDismiss = () => {
-    ReactDOM.unmountComponentAtNode(container)
+    unmountReactElement(container)
     this.modalShown = false;
   }
-  ReactDOM.render(
-    <BaseModal
-      show
-      onExited={onDismiss}
-      backdropClassName="modal-backdrop"
-      containerClassName="modal-open"
-      transition={Fade}
-      dialogTransitionTimeout={Modal.TRANSITION_DURATION}
-      backdropTransitionTimeout={Modal.BACKDROP_TRANSITION_DURATION}
-    >
-      <PasteShortcutAlert onDismiss={onDismiss} />
-    </BaseModal>,
-    container
+  renderReactElement(
+    container,
+    <Modal show onHide={onDismiss} backdrop="static" keyboard={false} centered>
+      <Modal.Body className="p-0">
+        <PasteShortcutAlert onDismiss={onDismiss} />
+      </Modal.Body>
+    </Modal>
   )
   this.modalShown = true;
 };
@@ -1181,10 +1171,8 @@ App.prototype.setBBSCmd = function setBBSCmd(cmd) {
 }
 
 App.prototype.setupContextMenus = function() {
-  ReactDOM.render(
-    <ContextMenu
-      pttchrome={this}
-    />,
-    document.getElementById('cmenuReact')
+  renderReactElement(
+    document.getElementById('cmenuReact'),
+    <ContextMenu pttchrome={this} />
   );
 };

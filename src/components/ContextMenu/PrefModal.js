@@ -1,11 +1,9 @@
 import cx from "classnames";
 import React from "react";
-import { compose, withStateHandlers, withHandlers } from "recompose";
+import { compose, withStateHandlers } from "recompose";
 import {
   Modal,
   Tab,
-  Row,
-  Col,
   Nav,
   NavItem,
   Button,
@@ -15,7 +13,7 @@ import {
   FormControl,
   OverlayTrigger,
   Popover
-} from "react-bootstrap";
+} from "../bootstrap-compat";
 import { i18n } from "../../js/i18n";
 import { getSafeExternalUrl } from "../../js/util";
 import "./PrefModal.css";
@@ -67,7 +65,7 @@ export const readValuesWithDefault = () => {
 
 const writeValues = values => {
   try {
-    window.localStorage.setItem(
+    globalThis.localStorage.setItem(
       PREF_STORAGE_KEY,
       JSON.stringify({
         values
@@ -78,7 +76,7 @@ const writeValues = values => {
 };
 
 const normalizeSec = value => {
-  const sec = parseInt(value, 10);
+  const sec = Number.parseInt(value, 10);
   return sec > 1 ? sec : 1;
 };
 
@@ -87,9 +85,20 @@ const replaceI18n = (id, replacements) => {
     .split(/#(\S+)#/gi)
     .map((it, index) => {
       if (index % 2 === 1 && it in replacements) {
-        return replacements[it];
+        const replacement = replacements[it];
+        if (React.isValidElement(replacement)) {
+          return React.cloneElement(replacement, {
+            key: `${id}-${it}-${index}`
+          });
+        }
+
+        return (
+          <React.Fragment key={`${id}-${it}-${index}`}>
+            {replacement}
+          </React.Fragment>
+        );
       } else {
-        return it;
+        return <React.Fragment key={`${id}-${index}`}>{it}</React.Fragment>;
       }
     });
 };
@@ -172,7 +181,7 @@ const enhance = compose(
       }),
 
       onNumberInputChange: ({ values }) => ({ target: { name, value } }) => ({
-        values: changeNestedValue(values, name, parseInt(value, 10))
+        values: changeNestedValue(values, name, Number.parseInt(value, 10))
       }),
 
       onTextInputChange: ({ values }) => ({ target: { name, value } }) => ({

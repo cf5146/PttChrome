@@ -17,8 +17,8 @@ export class Screen extends React.Component {
     top: undefined
   };
 
-  componentWillReceiveProps(nextProps) {
-    if (this.props.lines !== nextProps.lines) {
+  componentDidUpdate(prevProps) {
+    if (this.props.lines !== prevProps.lines) {
       this.setState({ currentImagePreview: undefined });
     }
   }
