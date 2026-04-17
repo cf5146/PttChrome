@@ -2,7 +2,6 @@ import { App } from './pttchrome';
 import { setupI18n } from './i18n';
 import { renderReactElement, unmountReactElement } from './react_roots';
 import { ALLOW_SITE_IN_QUERY, DEFAULT_SITE, DEVELOPER_MODE } from './runtime_env';
-import { readValuesWithDefault } from '../store';
 import { getQueryVariable } from './util';
 
 const b2uTableUrl = new URL('../conv/b2u_table.bin', import.meta.url).href;
@@ -42,8 +41,6 @@ function startApp() {
   app.connect(
     ALLOW_SITE_IN_QUERY && getQueryVariable('site')
     || DEFAULT_SITE);
-  console.log('load pref from storage');
-  app.onValuesPrefChange(readValuesWithDefault());
   app.setInputAreaFocus();
   $('#BBSWindow').show();
   app.onWindowResize();

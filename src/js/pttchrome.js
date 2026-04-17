@@ -8,6 +8,7 @@ import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
 import { Modal } from '../components/bootstrap-compat';
 import { renderReactElement, unmountReactElement } from './react_roots';
+import { readValuesWithDefault, subscribePreferenceValues } from '../store';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
 import { setTimer, openExternalUrl, createGoogleSearchUrl, escapeCssUrl } from './util';
 import PasteShortcutAlert from '../components/PasteShortcutAlert';
@@ -155,6 +156,9 @@ export const App = function() {
   this.onWindowResize();
   this.setupContextMenus();
   this.contextMenuShown = false;
+  this._unsubscribePreferenceValues = subscribePreferenceValues(values => {
+    this.onValuesPrefChange(values);
+  });
 
   // init touch only if chrome is higher than version 36
   if (this.chromeVersion && this.chromeVersion >= 37) {
@@ -186,6 +190,8 @@ App.prototype.connect = function(url) {
     port: parsed.port,
     easyReadingSupported: true
   };
+
+  this.onValuesPrefChange(readValuesWithDefault());
 };
 
 App.prototype._parseURLSimple = function(url) {

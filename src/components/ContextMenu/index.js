@@ -31,8 +31,7 @@ const menuHandlerByEventKey = {
   mouseBrowsing: pttchrome => pttchrome.switchMouseBrowsing()
 };
 
-const onPrefSaveImpl = (pttchrome, values) => {
-  pttchrome.onValuesPrefChange(values);
+const onPrefSaveImpl = pttchrome => {
   pttchrome.modalShown = false;
   pttchrome.setInputAreaFocus();
   pttchrome.switchToEasyReadingMode(pttchrome.view.useEasyReadingMode);
@@ -255,22 +254,16 @@ export const ContextMenu = ({ pttchrome }) => {
     [pttchrome, setLiveHelperState]
   );
 
-  const onPrefSave = React.useCallback(
-    values => {
-      onPrefSaveImpl(pttchrome, values);
-      hideSettings();
-    },
-    [hideSettings, pttchrome]
-  );
+  const onPrefSave = React.useCallback(() => {
+    onPrefSaveImpl(pttchrome);
+    hideSettings();
+  }, [hideSettings, pttchrome]);
 
-  const onPrefReset = React.useCallback(
-    values => {
-      pttchrome.view.redraw(true);
-      onPrefSaveImpl(pttchrome, values);
-      hideSettings();
-    },
-    [hideSettings, pttchrome]
-  );
+  const onPrefReset = React.useCallback(() => {
+    pttchrome.view.redraw(true);
+    onPrefSaveImpl(pttchrome);
+    hideSettings();
+  }, [hideSettings, pttchrome]);
 
   React.useEffect(() => {
     const bbsWindow = document.getElementById("BBSWindow");
