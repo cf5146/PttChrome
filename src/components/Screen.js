@@ -1,3 +1,5 @@
+import PropTypes from "prop-types";
+import React from "react";
 import Row from "./Row";
 import ImagePreviewer, {
   of,
@@ -5,73 +7,115 @@ import ImagePreviewer, {
   resolveWithImageDOM
 } from "./ImagePreviewer";
 
-export class Screen extends React.Component {
-  setCurrentHighlighted = currentHighlighted => {
-    this.setState({ currentHighlighted });
-  };
-
-  state = {
-    currentHighlighted: undefined,
-    currentImagePreview: undefined,
+export const Screen = React.forwardRef(function Screen(props, ref) {
+  const {
+    lines,
+    forceWidth,
+    enableLinkInlinePreview,
+    enableLinkHoverPreview
+  } = props;
+  const [currentHighlighted, setCurrentHighlighted] = React.useState();
+  const [currentImagePreview, setCurrentImagePreview] = React.useState();
+  const [hoverPosition, setHoverPosition] = React.useState({
     left: undefined,
     top: undefined
-  };
+  });
+  const containerRef = React.useRef(null);
 
-  componentDidUpdate(prevProps) {
-    if (this.props.lines !== prevProps.lines) {
-      this.setState({ currentImagePreview: undefined });
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      setCurrentHighlighted
+    }),
+    []
+  );
+
+  React.useEffect(() => {
+    setCurrentImagePreview(undefined);
+  }, [lines]);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return undefined;
     }
-  }
 
-  handleMouseMove = ({ clientX, clientY }) => {
-    if (this.state.currentImagePreview) {
-      this.setState({
-        left: clientX,
-        top: clientY
+    const handleMouseMove = event => {
+      if (!currentImagePreview) {
+        return;
+      }
+
+      setHoverPosition({
+        left: event.clientX,
+        top: event.clientY
       });
+    };
+
+    container.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      container.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [currentImagePreview]);
+
+  const handleHyperLinkMouseOver = event => {
+    if (!enableLinkHoverPreview) {
+      return;
     }
+
+    setHoverPosition({
+      left: event.clientX,
+      top: event.clientY
+    });
+    setCurrentImagePreview(
+      of(event.currentTarget.href)
+        .then(resolveSrcToImageUrl)
+        .then(resolveWithImageDOM)
+    );
   };
 
-  handleHyperLinkMouseOver = ({ currentTarget: { href } }) => {
-    if (this.props.enableLinkHoverPreview) {
-      this.setState({
-        currentImagePreview: of(href)
-          .then(resolveSrcToImageUrl)
-          .then(resolveWithImageDOM)
-      });
-    }
+  const handleHyperLinkMouseOut = () => {
+    setCurrentImagePreview(undefined);
   };
 
-  handleHyperLinkMouseOut = () => {
-    this.setState({ currentImagePreview: undefined });
-  };
-
-  render() {
-    return (
-      <div id="mainContainer" onMouseMove={this.handleMouseMove}>
-        {this.props.lines.map((chars, row) => (
-          <Row
-            key={row}
-            chars={chars}
-            row={row}
-            forceWidth={this.props.forceWidth}
-            enableLinkInlinePreview={this.props.enableLinkInlinePreview}
-            highlighted={this.state.currentHighlighted === row}
-            onHyperLinkMouseOver={this.handleHyperLinkMouseOver}
-            onHyperLinkMouseOut={this.handleHyperLinkMouseOut}
-          />
-        ))}
-        {this.state.currentImagePreview && (
-          <ImagePreviewer
-            request={this.state.currentImagePreview}
-            component={ImagePreviewer.OnHover}
-            left={this.state.left}
-            top={this.state.top}
-          />
-        )}
-      </div>
+  const rows = [];
+  for (let row = 0; row < lines.length; row += 1) {
+    rows.push(
+      <Row
+        key={`row-${row}`}
+        chars={lines[row]}
+        row={row}
+        forceWidth={forceWidth}
+        enableLinkInlinePreview={enableLinkInlinePreview}
+        highlighted={currentHighlighted === row}
+        onHyperLinkMouseOver={handleHyperLinkMouseOver}
+        onHyperLinkMouseOut={handleHyperLinkMouseOut}
+      />
     );
   }
-}
+
+  return (
+    <div id="mainContainer" ref={containerRef}>
+      {rows}
+      {currentImagePreview ? (
+        <ImagePreviewer
+          request={currentImagePreview}
+          component={ImagePreviewer.OnHover}
+          left={hoverPosition.left}
+          top={hoverPosition.top}
+        />
+      ) : null}
+    </div>
+  );
+});
+
+Screen.propTypes = {
+  lines: PropTypes.arrayOf(PropTypes.array).isRequired,
+  forceWidth: PropTypes.number.isRequired,
+  enableLinkInlinePreview: PropTypes.bool.isRequired,
+  enableLinkHoverPreview: PropTypes.bool.isRequired
+};
+
+Screen.displayName = "Screen";
 
 export default Screen;

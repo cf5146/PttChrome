@@ -1,6 +1,7 @@
+import PropTypes from "prop-types";
+import React from "react";
 import { decode } from "base58";
 
-const noop = () => {};
 const stringifyQuery = query => new URLSearchParams(query).toString();
 
 export const of = src => Promise.resolve({ src });
@@ -20,65 +21,71 @@ export const resolveWithImageDOM = ({ src }) =>
     img.src = src;
   });
 
-export class ImagePreviewer extends React.PureComponent {
-  state = {
-    pending: undefined,
+export const ImagePreviewer = ({ component: Component, request, ...props }) => {
+  const [result, setResult] = React.useState({
     value: undefined,
     error: undefined
-  };
+  });
 
-  componentDidMount() {
-    this.handleStart();
-  }
+  React.useEffect(() => {
+    let isActive = true;
 
-  componentDidUpdate(prevProps) {
-    if (this.props.request !== prevProps.request) {
-      this.handleStart();
-    }
-  }
-
-  handleStart(props) {
-    this.setState((state, { request }) => {
-      request.then(this.handleResolve, this.handleReject);
-      return {
-        pending: request,
-        value: undefined,
-        error: undefined
-      };
+    setResult({
+      value: undefined,
+      error: undefined
     });
-  }
 
-  handleResolve = value => {
-    this.setState(({ pending }, { request }) => {
-      if (pending !== request) {
-        return;
+    request.then(
+      value => {
+        if (!isActive) {
+          return;
+        }
+
+        setResult({
+          value,
+          error: undefined
+        });
+      },
+      error => {
+        if (!isActive) {
+          return;
+        }
+
+        setResult({
+          value: undefined,
+          error
+        });
       }
-      return { value };
-    });
-  };
+    );
 
-  handleReject = error => {
-    this.setState(({ pending }, { request }) => {
-      if (pending !== request) {
-        return;
-      }
-      return { error };
-    });
-  };
+    return () => {
+      isActive = false;
+    };
+  }, [request]);
 
-  render() {
-    return React.createElement(this.props.component, {
-      ...this.props,
-      component: undefined,
-      request: undefined,
-      value: this.state.value,
-      error: this.state.error
-    });
+  return <Component {...props} value={result.value} error={result.error} />;
+};
+
+const promisePropType = (props, propName, componentName) => {
+  const value = props[propName];
+
+  if (!value || typeof value.then !== "function") {
+    return new Error(
+      `${componentName} expected ${propName} to be a Promise-like value.`
+    );
   }
-}
+
+  return null;
+};
+
+ImagePreviewer.propTypes = {
+  component: PropTypes.elementType.isRequired,
+  request: promisePropType
+};
 
 const getTop = (top, height) => {
-  const pageHeight = $(window).height();
+  const pageHeight =
+    globalThis.innerHeight || document.documentElement.clientHeight;
 
   // opening image would pass the bottom of the page
   if (top + height / 2 > pageHeight - 20) {
@@ -91,12 +98,18 @@ const getTop = (top, height) => {
   return 20;
 };
 
+const previewValuePropType = PropTypes.shape({
+  src: PropTypes.string.isRequired,
+  height: PropTypes.number
+});
+
 ImagePreviewer.OnHover = ({ left, top, value, error }) => {
   if (error) {
-    return false;
+    return null;
   } else if (value) {
     return (
       <img
+        alt=""
         src={value.src}
         style={{
           display: "block",
@@ -124,16 +137,30 @@ ImagePreviewer.OnHover = ({ left, top, value, error }) => {
   }
 };
 
+ImagePreviewer.OnHover.propTypes = {
+  left: PropTypes.number,
+  top: PropTypes.number,
+  value: previewValuePropType,
+  error: PropTypes.any
+};
+
 ImagePreviewer.Inline = ({ value, error }) => {
   if (error) {
-    return false;
+    return null;
   } else if (value) {
-    return <img className="easyReadingImg hyperLinkPreview" src={value.src} />;
+    return (
+      <img alt="" className="easyReadingImg hyperLinkPreview" src={value.src} />
+    );
   } else {
     return (
       <i className="glyphicon glyphicon-refresh glyphicon-refresh-animate" />
     );
   }
+};
+
+ImagePreviewer.Inline.propTypes = {
+  value: previewValuePropType,
+  error: PropTypes.any
 };
 
 const imageUrlResolvers = [
@@ -163,7 +190,9 @@ registerImageUrlResolver({
     return this.regex.test(src);
   },
   request(src) {
-    const [, flickrBase58Id, flickrPhotoId] = src.match(this.regex);
+    const match = src.match(this.regex);
+    const flickrBase58Id = match[1];
+    const flickrPhotoId = match[2];
     const photoId = flickrBase58Id ? decode(flickrBase58Id) : flickrPhotoId;
 
     const apiURL = `https://api.flickr.com/services/rest/?${stringifyQuery({
@@ -198,7 +227,9 @@ registerImageUrlResolver({
     return this.regex.test(src);
   },
   request(src) {
-    const [_, photoId, extension = "jpg"] = this.regex.exec(src);
+    const match = this.regex.exec(src);
+    const photoId = match[1];
+    const extension = match[2] || "jpg";
     return Promise.resolve({
       src: `https://i.imgur.com/${photoId}.${extension}`
     });

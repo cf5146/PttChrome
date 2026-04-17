@@ -13,7 +13,7 @@ const ensureRootEntry = container => {
       screenHandle: {
         setCurrentHighlighted() {}
       },
-      screenInstance: null
+      screenApi: null
     };
     roots.set(container, entry);
   }
@@ -41,21 +41,21 @@ export const renderScreenElement = (container, element) => {
 
   entry.root.render(
     React.cloneElement(element, {
-      ref: instance => {
-        entry.screenInstance = instance;
+      ref: screenApi => {
+        entry.screenApi = screenApi || null;
         entry.screenHandle.setCurrentHighlighted = row => {
           entry.pendingHighlight = row;
-          if (entry.screenInstance) {
-            entry.screenInstance.setCurrentHighlighted(row);
+          if (entry.screenApi) {
+            entry.screenApi.setCurrentHighlighted(row);
           }
         };
 
         if (
-          instance &&
+          screenApi &&
           entry.pendingHighlight !== undefined &&
           entry.pendingHighlight !== null
         ) {
-          instance.setCurrentHighlighted(entry.pendingHighlight);
+          screenApi.setCurrentHighlighted(entry.pendingHighlight);
         }
       }
     })
