@@ -5,7 +5,6 @@ import type {
   HoverImagePreviewProps,
   InlineImagePreviewContentProps,
   InlineImagePreviewProps,
-  LegacyImagePreviewProps,
   PreviewRenderState,
   PreviewRequest,
   PreviewValue,
@@ -71,16 +70,6 @@ const usePreviewState = <TValue extends PreviewValue>(
   }, [request]);
 
   return result;
-};
-
-export const LegacyImagePreviewer = <TValue extends PreviewValue>({
-  component: Component,
-  request,
-  ...props
-}: LegacyImagePreviewProps<TValue>) => {
-  const result = usePreviewState(request);
-
-  return <Component {...props} value={result.value} error={result.error} />;
 };
 
 export const HoverImagePreviewContent = ({

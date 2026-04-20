@@ -1,5 +1,3 @@
-import type { ComponentType } from "react";
-
 export type PreviewValue = {
   src: string;
   height?: number;
@@ -14,7 +12,7 @@ export type PreviewRequest<TValue extends PreviewValue = PreviewValue> =
 
 export type PreviewRenderState<TValue extends PreviewValue = PreviewValue> = {
   value: TValue | undefined;
-  error: unknown | undefined;
+  error: unknown;
 };
 
 export type PreviewResolver = {
@@ -39,9 +37,3 @@ export type HoverImagePreviewProps = {
 export type InlineImagePreviewProps = {
   request: PreviewRequest<PreviewValue>;
 };
-
-export type LegacyImagePreviewProps<TValue extends PreviewValue = PreviewValue> =
-  {
-    component: ComponentType<any>;
-    request: PreviewRequest<TValue>;
-  } & Record<string, unknown>;
