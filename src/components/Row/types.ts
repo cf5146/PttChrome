@@ -29,3 +29,12 @@ export type RowProps = {
   onHyperLinkMouseOver?: HyperLinkEventHandler;
   onHyperLinkMouseOut?: HyperLinkEventHandler;
 };
+
+export type HyperLinkProps = {
+  col: number;
+  row: number;
+  href?: string | null;
+  inner: React.ReactNode;
+  onMouseOver?: HyperLinkEventHandler;
+  onMouseOut?: HyperLinkEventHandler;
+};
