@@ -1,10 +1,21 @@
 import cx from "classnames";
-import { forceWidthStyle } from "./ForceWidthWord";
 
-/**
- * TODO: add blinking.
- */
-export const TwoColorWord = ({ colorLead, colorTail, forceWidth, text }) => (
+import { forceWidthStyle } from "./ForceWidthWord";
+import type { TerminalColor } from "../types";
+
+type TwoColorWordProps = {
+  colorLead: TerminalColor;
+  colorTail: TerminalColor;
+  forceWidth: number;
+  text: string;
+};
+
+export const TwoColorWord = ({
+  colorLead,
+  colorTail,
+  forceWidth,
+  text,
+}: TwoColorWordProps) => (
   <span
     className={cx({
       [`q${colorLead.fg}`]: colorLead.fg === colorTail.fg,
@@ -13,7 +24,7 @@ export const TwoColorWord = ({ colorLead, colorTail, forceWidth, text }) => (
       o: colorLead.fg !== colorTail.fg,
       [`b${colorLead.bg}`]: colorLead.bg === colorTail.bg,
       [`b${colorLead.bg}b${colorTail.bg}`]: colorLead.bg !== colorTail.bg,
-      wpadding: forceWidth
+      wpadding: forceWidth,
     })}
     style={forceWidthStyle(forceWidth)}
     data-text={text}
