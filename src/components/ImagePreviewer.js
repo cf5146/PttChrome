@@ -4,6 +4,12 @@ import { decode } from "base58";
 
 const stringifyQuery = query => new URLSearchParams(query).toString();
 
+const DIRECT_IMAGE_URL_REGEX = /^https?:\/\/.+\.(?:avif|bmp|gif|jpe?g|png|webp)(?:[?#].*)?$/i;
+
+const resolveImgurImageUrl = (photoId, extension = "jpg") => ({
+  src: `https://i.imgur.com/${photoId}.${extension}`
+});
+
 export const of = src => Promise.resolve({ src });
 
 export const resolveSrcToImageUrl = ({ src }) =>
@@ -226,9 +232,21 @@ registerImageUrlResolver({
 
 registerImageUrlResolver({
   /*
-   * imgur.com
+   * Direct image URLs from image hosts and CDNs.
    */
-  regex: /^https?:\/\/(?:i\.)?imgur\.com\/([^.]+)(?:\.(.*))?/,
+  test(src) {
+    return DIRECT_IMAGE_URL_REGEX.test(src);
+  },
+  request(src) {
+    return Promise.resolve({ src });
+  }
+});
+
+registerImageUrlResolver({
+  /*
+   * imgur.com gallery and topic share pages
+   */
+  regex: /^https?:\/\/(?:m\.)?imgur\.com\/(?:gallery|t\/[^/]+)\/([^/?#.]+)(?:\.(\w+))?(?:[?#].*)?$/,
   test(src) {
     return this.regex.test(src);
   },
@@ -236,9 +254,25 @@ registerImageUrlResolver({
     const match = this.regex.exec(src);
     const photoId = match[1];
     const extension = match[2] || "jpg";
-    return Promise.resolve({
-      src: `https://i.imgur.com/${photoId}.${extension}`
-    });
+
+    return Promise.resolve(resolveImgurImageUrl(photoId, extension));
+  }
+});
+
+registerImageUrlResolver({
+  /*
+   * imgur.com
+   */
+  regex: /^https?:\/\/(?:i\.|m\.)?imgur\.com\/([^./?#/]+)(?:\.(\w+))?(?:[?#].*)?$/,
+  test(src) {
+    return this.regex.test(src);
+  },
+  request(src) {
+    const match = this.regex.exec(src);
+    const photoId = match[1];
+    const extension = match[2] || "jpg";
+
+    return Promise.resolve(resolveImgurImageUrl(photoId, extension));
   }
 });
 

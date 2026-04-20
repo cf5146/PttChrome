@@ -11,9 +11,43 @@ describe('ImagePreviewer helpers', () => {
     vi.unstubAllGlobals();
   });
 
+  it('passes through direct image URLs from other hosts', async () => {
+    await expect(
+      createInlineImagePreviewRequest('https://i.mopix.cc/cX4JLB.jpg')
+    ).resolves.toEqual({
+      src: 'https://i.mopix.cc/cX4JLB.jpg'
+    });
+  });
+
+  it('matches direct image URLs with query strings', async () => {
+    await expect(
+      createInlineImagePreviewRequest(
+        'https://cdn.example.com/path/to/image.webp?width=800'
+      )
+    ).resolves.toEqual({
+      src: 'https://cdn.example.com/path/to/image.webp?width=800'
+    });
+  });
+
   it('rewrites imgur page URLs to direct image URLs', async () => {
     await expect(
       createInlineImagePreviewRequest('https://imgur.com/abc123')
+    ).resolves.toEqual({
+      src: 'https://i.imgur.com/abc123.jpg'
+    });
+  });
+
+  it('rewrites imgur gallery URLs to direct image URLs', async () => {
+    await expect(
+      createInlineImagePreviewRequest('https://imgur.com/gallery/abc123')
+    ).resolves.toEqual({
+      src: 'https://i.imgur.com/abc123.jpg'
+    });
+  });
+
+  it('rewrites imgur topic URLs to direct image URLs', async () => {
+    await expect(
+      createInlineImagePreviewRequest('https://imgur.com/t/memes/abc123')
     ).resolves.toEqual({
       src: 'https://i.imgur.com/abc123.jpg'
     });
