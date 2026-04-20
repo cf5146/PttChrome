@@ -1,7 +1,8 @@
 import PropTypes from "prop-types";
 import React from "react";
 import Row from "./Row";
-import ImagePreviewer, {
+import {
+  HoverImagePreview,
   createHoverImagePreviewRequest
 } from "./ImagePreviewer";
 
@@ -94,9 +95,8 @@ export const Screen = React.forwardRef(function Screen(props, ref) {
     <div id="mainContainer" ref={containerRef}>
       {rows}
       {currentImagePreview ? (
-        <ImagePreviewer
+        <HoverImagePreview
           request={currentImagePreview}
-          component={ImagePreviewer.OnHover}
           left={hoverPosition.left}
           top={hoverPosition.top}
         />

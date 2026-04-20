@@ -1,7 +1,8 @@
 import cx from "classnames";
 import HyperLink from "./HyperLink";
 import ColorSegmentBuilder from "./ColorSegmentBuilder";
-import ImagePreviewer, {
+import {
+  InlineImagePreview,
   createInlineImagePreviewRequest
 } from "../ImagePreviewer";
 
@@ -45,10 +46,9 @@ export class LinkSegmentBuilder {
       // TODO: Modularize this.
       if (this.inlineLinkPreviews) {
         this.inlineLinkPreviews.push(
-          <ImagePreviewer
+          <InlineImagePreview
             key={`${this.col}-${this.href}`}
             request={createInlineImagePreviewRequest(this.href)}
-            component={ImagePreviewer.Inline}
           />
         );
       }
