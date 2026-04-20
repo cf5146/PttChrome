@@ -1,5 +1,6 @@
 node_modules
 **/*.concat.*
+.husky/_
 
 js/constants_local.js
 dist/*

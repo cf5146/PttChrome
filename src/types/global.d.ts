@@ -16,14 +16,12 @@ declare global {
   interface GlobalThis {
     $: JQueryStatic;
     jQuery: JQueryStatic;
-    Hammer: typeof import('hammerjs');
     React: typeof import('react');
     lib: PttChrome.LibTables | undefined;
   }
 
   var $: JQueryStatic;
   var jQuery: JQueryStatic;
-  var Hammer: typeof import('hammerjs');
   var React: typeof import('react');
   var lib: PttChrome.LibTables | undefined;
 }

@@ -123,7 +123,7 @@ export const App = function() {
     self.mouse_down(e);
   }, false);
 
-  $(window).mousedown(function(e) {
+  $(globalThis).on('mousedown', function(e) {
     var ret = self.middleMouse_down(e);
     if (ret === false) {
       return false;
