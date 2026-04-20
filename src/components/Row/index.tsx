@@ -1,5 +1,7 @@
 import PropTypes from "prop-types";
+
 import LinkSegmentBuilder from "./LinkSegmentBuilder";
+import type { RowProps } from "./types";
 
 export const Row = ({
   chars,
@@ -8,12 +10,12 @@ export const Row = ({
   forceWidth,
   highlighted,
   onHyperLinkMouseOver,
-  onHyperLinkMouseOut
-}) => (
+  onHyperLinkMouseOut,
+}: RowProps) => (
   <span data-type="bbsrow" data-srow={row}>
     {chars
       .reduce(
-        LinkSegmentBuilder.accumulator,
+        (builder, ch, index) => LinkSegmentBuilder.accumulator(builder, ch, index),
         new LinkSegmentBuilder(
           row,
           enableLinkInlinePreview,
@@ -34,7 +36,7 @@ Row.propTypes = {
   forceWidth: PropTypes.number.isRequired,
   highlighted: PropTypes.bool,
   onHyperLinkMouseOver: PropTypes.func,
-  onHyperLinkMouseOut: PropTypes.func
+  onHyperLinkMouseOut: PropTypes.func,
 };
 
 export default Row;

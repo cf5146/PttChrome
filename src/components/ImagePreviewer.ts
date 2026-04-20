@@ -2,12 +2,12 @@ export {
   HoverImagePreview,
   HoverImagePreviewContent,
   InlineImagePreview,
-  InlineImagePreviewContent
+  InlineImagePreviewContent,
 } from "./ImagePreviewer.core";
 export {
   createHoverImagePreviewRequest,
   createInlineImagePreviewRequest,
   of,
   resolveSrcToImageUrl,
-  resolveWithImageDOM
+  resolveWithImageDOM,
 } from "./ImagePreviewer.resolvers";
