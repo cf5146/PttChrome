@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   HoverImagePreview,
+  HoverImagePreviewContent,
   InlineImagePreview,
   createHoverImagePreviewRequest,
   createInlineImagePreviewRequest,
@@ -28,8 +29,14 @@ const createDeferred = <TValue,>() => {
   };
 };
 
-const installSuccessfulImageStub = (height = 480) => {
+const installSuccessfulImageStub = (width = 640, height = 480) => {
   class FakeImage {
+    naturalWidth = width;
+
+    naturalHeight = height;
+
+    width = width;
+
     height = height;
 
     onload = null;
@@ -49,6 +56,10 @@ const installSuccessfulImageStub = (height = 480) => {
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
+
+const DUMMY_IMAGE_URL = 'https://example.com/test-image.jpg';
+const DUMMY_TALL_IMAGE_URL = 'https://example.com/test-image-tall.jpg';
+const DUMMY_WIDE_IMAGE_URL = 'https://example.com/test-image-wide.jpg';
 
 describe('ImagePreviewer helpers', () => {
   let container;
@@ -78,11 +89,11 @@ describe('ImagePreviewer helpers', () => {
   });
 
   it('passes through direct image URLs from other hosts', async () => {
-    await expect(
-      createInlineImagePreviewRequest('https://i.mopix.cc/cX4JLB.jpg')
-    ).resolves.toEqual({
-      src: 'https://i.mopix.cc/cX4JLB.jpg'
-    });
+    await expect(createInlineImagePreviewRequest(DUMMY_IMAGE_URL)).resolves.toEqual(
+      {
+        src: DUMMY_IMAGE_URL
+      }
+    );
   });
 
   it('matches direct image URLs with query strings', async () => {
@@ -127,13 +138,14 @@ describe('ImagePreviewer helpers', () => {
     });
   });
 
-  it('resolves hover previews with measured image height', async () => {
+  it('resolves hover previews with measured image dimensions', async () => {
     installSuccessfulImageStub();
 
     await expect(
       createHoverImagePreviewRequest('https://imgur.com/hover-id')
     ).resolves.toEqual({
       src: 'https://i.imgur.com/hover-id.jpg',
+      width: 640,
       height: 480
     });
   });
@@ -148,14 +160,12 @@ describe('ImagePreviewer helpers', () => {
     await act(async () => {
       root.render(
         <InlineImagePreview
-          request={createInlineImagePreviewRequest('https://i.mopix.cc/cX4JLB.jpg')}
+          request={createInlineImagePreviewRequest(DUMMY_IMAGE_URL)}
         />
       );
     });
 
-    expect(container.querySelector('img')?.getAttribute('src')).toBe(
-      'https://i.mopix.cc/cX4JLB.jpg'
-    );
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(DUMMY_IMAGE_URL);
   });
 
   it('renders a loading spinner while inline previews are pending', async () => {
@@ -168,13 +178,11 @@ describe('ImagePreviewer helpers', () => {
     expect(container.querySelector('i.glyphicon-refresh')).not.toBeNull();
 
     await act(async () => {
-      deferred.resolve({ src: 'https://i.mopix.cc/cX4JLB.jpg' });
+      deferred.resolve({ src: DUMMY_IMAGE_URL });
       await deferred.promise;
     });
 
-    expect(container.querySelector('img')?.getAttribute('src')).toBe(
-      'https://i.mopix.cc/cX4JLB.jpg'
-    );
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(DUMMY_IMAGE_URL);
   });
 
   it('renders hover previews with resolved image positioning', async () => {
@@ -190,11 +198,69 @@ describe('ImagePreviewer helpers', () => {
       );
     });
 
-    const image = container.querySelector('img');
+    const image = document.body.querySelector(
+      'img[src="https://i.imgur.com/hover-id.jpg"]'
+    ) as HTMLImageElement | null;
 
+    expect(container.querySelector('img')).toBeNull();
     expect(image?.getAttribute('src')).toBe('https://i.imgur.com/hover-id.jpg');
     expect(image?.style.left).toBe('30px');
     expect(image?.style.top).toBe('20px');
+    expect(image?.style.padding).toBe('0px');
+  });
+
+  it('keeps tall hover previews fully visible near the bottom edge', async () => {
+    vi.stubGlobal('innerWidth', 1200);
+    vi.stubGlobal('innerHeight', 1000);
+
+    await act(async () => {
+      root.render(
+        <HoverImagePreviewContent
+          left={100}
+          top={900}
+          value={{
+            src: DUMMY_TALL_IMAGE_URL,
+            width: 1200,
+            height: 1600
+          }}
+          error={undefined}
+        />
+      );
+    });
+
+    const image = document.body.querySelector(
+      `img[src="${DUMMY_TALL_IMAGE_URL}"]`
+    ) as HTMLImageElement | null;
+
+    expect(image?.style.left).toBe('120px');
+    expect(image?.style.top).toBe('180px');
+  });
+
+  it('moves hover previews left when there is no space on the right', async () => {
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 900);
+
+    await act(async () => {
+      root.render(
+        <HoverImagePreviewContent
+          left={950}
+          top={300}
+          value={{
+            src: DUMMY_WIDE_IMAGE_URL,
+            width: 500,
+            height: 300
+          }}
+          error={undefined}
+        />
+      );
+    });
+
+    const image = document.body.querySelector(
+      `img[src="${DUMMY_WIDE_IMAGE_URL}"]`
+    ) as HTMLImageElement | null;
+
+    expect(image?.style.left).toBe('430px');
+    expect(image?.style.top).toBe('150px');
   });
 
   it('ignores late request resolution after unmount', async () => {
@@ -210,7 +276,7 @@ describe('ImagePreviewer helpers', () => {
     });
 
     await act(async () => {
-      deferred.resolve({ src: 'https://i.mopix.cc/cX4JLB.jpg' });
+      deferred.resolve({ src: DUMMY_IMAGE_URL });
       await deferred.promise;
     });
 

@@ -134,11 +134,16 @@ export const resolveWithImageDOM = ({
   new Promise((resolve, reject) => {
     const img = new Image();
 
-    img.onload = () =>
+    img.onload = () => {
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+
       resolve({
         src,
-        height: img.height,
+        width,
+        height,
       });
+    };
     img.onerror = reject;
     img.src = src;
   });

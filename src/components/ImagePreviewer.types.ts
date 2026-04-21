@@ -4,6 +4,7 @@ export type PreviewValue = {
 };
 
 export type HoverPreviewValue = PreviewValue & {
+  width: number;
   height: number;
 };
 
