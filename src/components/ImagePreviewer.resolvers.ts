@@ -40,7 +40,7 @@ registerImageUrlResolver({
     return this.regex.test(src);
   },
   request(src) {
-    const match = src.match(this.regex);
+    const match = this.regex.exec(src);
     const flickrBase58Id = match?.[1];
     const flickrPhotoId = match?.[2];
     const photoId = flickrBase58Id ? decode(flickrBase58Id) : flickrPhotoId;
@@ -96,7 +96,7 @@ registerImageUrlResolver({
 
 registerImageUrlResolver({
   regex:
-    /^https?:\/\/(?:i\.|m\.)?imgur\.com\/([^./?#/]+)(?:\.(\w+))?(?:[?#].*)?$/,
+    /^https?:\/\/(?:i\.|m\.)?imgur\.com\/([^.?#/]+)(?:\.(\w+))?(?:[?#].*)?$/,
   test(src) {
     return this.regex.test(src);
   },
