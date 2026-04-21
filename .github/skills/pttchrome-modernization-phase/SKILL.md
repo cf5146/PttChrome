@@ -19,7 +19,7 @@ Implement exactly one approved modernization phase or checkpoint in PttChrome an
 ## Repository Constraints
 
 - Entry flow is `src/entry.ts` -> `src/js/main.tsx` -> `App` in `src/js/pttchrome.js`.
-- Preserve the websocket defaults from `src/js/runtime_env.js`: production `wsstelnet://ws.ptt.cc/bbs`, development `wstelnet://localhost:8080/bbs`, and query-string site override only when `ALLOW_SITE_IN_QUERY=yes`.
+- Preserve the websocket defaults from `src/js/runtime_env.js`: production `wsstelnet://ptt-proxy.cf5146.workers.dev/bbs`, development `wstelnet://localhost:8080/bbs`, and query-string site override only when `ALLOW_SITE_IN_QUERY=yes`.
 - Keep these DOM mount ids stable unless the phase explicitly changes them: `cmdHandler`, `cmenuReact`, `BBSWindow`, `t`, `cursor`, `reactAlert`.
 - Keep user-visible strings in `src/js/i18n.js`, `src/js/en_US_messages.js`, and `src/js/zh_TW_messages.js` synchronized.
 - Do not modernize unrelated legacy core files opportunistically; keep changes scoped to the active phase.
