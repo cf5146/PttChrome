@@ -69,7 +69,7 @@ describe("HyperLink", () => {
 
     expect(container.querySelector("a.y")).toBeNull();
 
-    const fallback = container.querySelector("span.y");
+    const fallback = container.querySelector<HTMLSpanElement>("span.y");
 
     expect(fallback?.dataset.scol).toBe("3");
     expect(fallback?.dataset.srow).toBe("4");
