@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   HoverImagePreview,
+  HoverImagePreviewContent,
   InlineImagePreview,
   createHoverImagePreviewRequest,
   createInlineImagePreviewRequest,
@@ -28,8 +29,14 @@ const createDeferred = <TValue,>() => {
   };
 };
 
-const installSuccessfulImageStub = (height = 480) => {
+const installSuccessfulImageStub = (width = 640, height = 480) => {
   class FakeImage {
+    naturalWidth = width;
+
+    naturalHeight = height;
+
+    width = width;
+
     height = height;
 
     onload = null;
@@ -127,13 +134,14 @@ describe('ImagePreviewer helpers', () => {
     });
   });
 
-  it('resolves hover previews with measured image height', async () => {
+  it('resolves hover previews with measured image dimensions', async () => {
     installSuccessfulImageStub();
 
     await expect(
       createHoverImagePreviewRequest('https://imgur.com/hover-id')
     ).resolves.toEqual({
       src: 'https://i.imgur.com/hover-id.jpg',
+      width: 640,
       height: 480
     });
   });
@@ -195,6 +203,56 @@ describe('ImagePreviewer helpers', () => {
     expect(image?.getAttribute('src')).toBe('https://i.imgur.com/hover-id.jpg');
     expect(image?.style.left).toBe('30px');
     expect(image?.style.top).toBe('20px');
+  });
+
+  it('keeps tall hover previews fully visible near the bottom edge', async () => {
+    vi.stubGlobal('innerWidth', 1200);
+    vi.stubGlobal('innerHeight', 1000);
+
+    await act(async () => {
+      root.render(
+        <HoverImagePreviewContent
+          left={100}
+          top={900}
+          value={{
+            src: 'https://i.mopix.cc/cX4JLB.jpg',
+            width: 1200,
+            height: 1600
+          }}
+          error={undefined}
+        />
+      );
+    });
+
+    const image = container.querySelector('img');
+
+    expect(image?.style.left).toBe('120px');
+    expect(image?.style.top).toBe('180px');
+  });
+
+  it('moves hover previews left when there is no space on the right', async () => {
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 900);
+
+    await act(async () => {
+      root.render(
+        <HoverImagePreviewContent
+          left={950}
+          top={300}
+          value={{
+            src: 'https://i.mopix.cc/cX4JLB.jpg',
+            width: 500,
+            height: 300
+          }}
+          error={undefined}
+        />
+      );
+    });
+
+    const image = container.querySelector('img');
+
+    expect(image?.style.left).toBe('430px');
+    expect(image?.style.top).toBe('150px');
   });
 
   it('ignores late request resolution after unmount', async () => {
