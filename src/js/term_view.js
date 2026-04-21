@@ -2,14 +2,16 @@
 
 import { TermKeyboard } from './term_keyboard';
 import { termInvColors } from './term_buf';
-import { renderRowHtml, renderScreen } from './term_ui';
+import { renderRowElement, renderScreen } from './term_ui';
 import { i18n } from './i18n';
+import { isContextMenuOpen, readConnectedUrl } from '../store';
 import { setTimer } from './util';
 import { wrapText, u2b, parseStatusRow } from './string_util';
 
 const ENTER_CHAR = '\r';
 const ESC_CHAR = '\x15'; // Ctrl-U
 const DEFINE_INPUT_BUFFER_SIZE = 12;
+const notificationIcon = new URL('../icon/icon_128.png', import.meta.url).href;
 
 export function TermView() {
   //new pref - start
@@ -124,7 +126,7 @@ export function TermView() {
     this.onInput(e);
   }, false);
 
-  let shouldAcceptInput = () => !this.bbscore.modalShown && !this.bbscore.contextMenuShown;
+  let shouldAcceptInput = () => !this.bbscore.modalShown && !isContextMenuOpen();
   let keyEventFilter = (e) => {
     // On both Mac and Windows, control/alt+key will be sent as original key
     // code even under IME.
@@ -280,7 +282,7 @@ TermView.prototype = {
         }
       } else {
         this.componentScreen = renderScreen(
-          /* For Screen#componentWillReceiveProps */lines.slice(),
+          /* Reset hover preview when line references change. */lines.slice(),
           this.chh,
           /* showsLinkPreview */false,
           this.enablePicPreview,
@@ -303,7 +305,7 @@ TermView.prototype = {
   },
 
   onInput: function(e) {
-    if (this.bbscore.modalShown || this.bbscore.contextMenuShown)
+    if (this.bbscore.modalShown || isContextMenuOpen())
       return;
     if (this.isComposition) {
       // beginning chrome 55, we no longer can update input buffer width on compositionupdate
@@ -703,6 +705,7 @@ TermView.prototype = {
       return;
     }
     var app = this.bbscore;
+    var connectedSite = readConnectedUrl().site;
     //console.log('message from ' + this.waterball.userId + ': ' + this.waterball.message); 
     var title = app.waterball.userId + ' ' + i18n('notification_said');
     if (this.titleTimer) {
@@ -710,14 +713,14 @@ TermView.prototype = {
       this.titleTimer = null;
     }
     this.titleTimer = setTimer(true, function() {
-      if (document.title == app.connectedUrl.site) {
+      if (document.title == connectedSite) {
         document.title = title + ' ' + app.waterball.message;
       } else {
-        document.title = app.connectedUrl.site;
+        document.title = connectedSite;
       }
     }, 1500);
     var options = {
-      icon: require('../icon/icon_128.png'),
+      icon: notificationIcon,
       body: app.waterball.message,
       tag: app.waterball.userId
     };
@@ -805,21 +808,22 @@ TermView.prototype = {
     for (var i in lines) {
       var line = lines[i];
       var el = document.createElement('span');
-      el.setAttribute('type', 'bbsrow');
-      el.setAttribute('srow', this.mainContainer.childNodes.length);
+      var rowIndex = this.mainContainer.childNodes.length;
+      el.setAttribute('data-type', 'bbsrow');
+      el.setAttribute('data-srow', rowIndex);
       this.mainContainer.appendChild(el);
-      renderRowHtml(
-        line, this.mainContainer.childNodes.length, this.chh,
+      renderRowElement(
+        line, rowIndex, this.chh,
         showsLinkPreview, el);
     }
   },
 
   renderSingleRow: function(target, row) {
     var el = document.createElement('span');
-    el.setAttribute('type', 'bbsrow');
-    el.setAttribute('srow', '0');
+    el.setAttribute('data-type', 'bbsrow');
+    el.setAttribute('data-srow', '0');
     target.appendChild(el);
-    return renderRowHtml(row, 0, this.chh, false, el);
+    return renderRowElement(row, 0, this.chh, false, el);
   },
 
   hideEasyReading: function() {

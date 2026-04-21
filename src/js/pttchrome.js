@@ -1,6 +1,4 @@
 ﻿// Main Program
-import BaseModal from 'react-overlays/lib/Modal';
-import { Fade, Modal } from "react-bootstrap";
 import { AnsiParser } from './ansi_parser';
 import { TermView } from './term_view';
 import { TermBuf } from './term_buf';
@@ -8,16 +6,28 @@ import { TelnetConnection } from './telnet';
 import { Websocket } from './websocket';
 import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
-import { i18n } from './i18n';
+import {
+  isAppConnected,
+  isAnyModalOpen,
+  readConnectedUrl,
+  readConnectionState,
+  readLiveHelperState,
+  readValuesWithDefault,
+  subscribePreferenceValues,
+  writeConnectionState,
+  writeRuntimeAlert,
+  writeLiveHelperState,
+  writeRuntimeModalOpen
+} from '../store';
 import { unescapeStr, b2u, parseWaterball } from './string_util';
 import { setTimer, openExternalUrl, createGoogleSearchUrl, escapeCssUrl } from './util';
-import PasteShortcutAlert from '../components/PasteShortcutAlert';
-import ConnectionAlert from '../components/ConnectionAlert';
+import { renderReactElement } from './react_roots';
 import ContextMenu from '../components/ContextMenu';
 
-function noop() {}
-
 const ANTI_IDLE_STR = '\x1b\x1b';
+const tabIconDefault = new URL('../icon/logo.png', import.meta.url).href;
+const tabIconConnect = new URL('../icon/logo_connect.png', import.meta.url).href;
+const tabIconDisconnect = new URL('../icon/logo_disconnect.png', import.meta.url).href;
 
 export const App = function() {
 
@@ -57,7 +67,39 @@ export const App = function() {
   this.mouseRightButtonDown = false;
 
   this.inputAreaFocusTimer = null;
-  this.modalShown = false;
+
+  Object.defineProperty(this, 'modalShown', {
+    configurable: true,
+    enumerable: true,
+    get: function() {
+      return isAnyModalOpen();
+    },
+    set: function(isOpen) {
+      writeRuntimeModalOpen(isOpen);
+    }
+  });
+
+  Object.defineProperty(this, 'connectState', {
+    configurable: true,
+    enumerable: true,
+    get: function() {
+      return readConnectionState().connectState;
+    },
+    set: function(connectState) {
+      writeConnectionState({ connectState });
+    }
+  });
+
+  Object.defineProperty(this, 'connectedUrl', {
+    configurable: true,
+    enumerable: true,
+    get: function() {
+      return readConnectedUrl();
+    },
+    set: function(connectedUrl) {
+      writeConnectionState({ connectedUrl });
+    }
+  });
 
   this.lastSelection = null;
 
@@ -81,7 +123,7 @@ export const App = function() {
     self.mouse_down(e);
   }, false);
 
-  $(window).mousedown(function(e) {
+  $(globalThis).on('mousedown', function(e) {
     var ret = self.middleMouse_down(e);
     if (ret === false) {
       return false;
@@ -152,7 +194,9 @@ export const App = function() {
   this.maxPushthreadAutoUpdateCount = -1;
   this.onWindowResize();
   this.setupContextMenus();
-  this.contextMenuShown = false;
+  this._unsubscribePreferenceValues = subscribePreferenceValues(values => {
+    this.onValuesPrefChange(values);
+  });
 
   // init touch only if chrome is higher than version 36
   if (this.chromeVersion && this.chromeVersion >= 37) {
@@ -161,29 +205,51 @@ export const App = function() {
 };
 
 App.prototype.isConnected = function() {
-  return this.connectState == 1 && !!this.conn;
+  return isAppConnected() && !!this.conn;
 };
 
-App.prototype.connect = function(url) {
-  this.connectState = 0;
-  console.log('connect: ' + url);
-
-  var parsed = this._parseURLSimple(url);
-  if (parsed.protocol == 'wsstelnet') {
-    this._setupWebsocketConn('wss://' + parsed.hostname + parsed.path);
-  } else if (parsed.protocol == 'wstelnet') {
-    this._setupWebsocketConn('ws://' + parsed.hostname + parsed.path);
-  } else {
-    console.log('unsupport connect url protocol: ' + parser.protocol);
+App.prototype.reconnect = function() {
+  const { url } = readConnectedUrl();
+  if (!url) {
     return;
   }
 
-  this.connectedUrl = {
+  this.connect(url);
+};
+
+App.prototype.connect = function(url) {
+  console.log('connect: ' + url);
+
+  var parsed = this._parseURLSimple(url);
+  if (!parsed) {
+    console.log('unable to parse connect url: ' + url);
+    return;
+  }
+
+  const connectedUrl = {
     url: url,
     site: parsed.hostname,
     port: parsed.port,
     easyReadingSupported: true
   };
+  let socketUrl = '';
+
+  if (parsed.protocol == 'wsstelnet') {
+    socketUrl = 'wss://' + parsed.hostname + parsed.path;
+  } else if (parsed.protocol == 'wstelnet') {
+    socketUrl = 'ws://' + parsed.hostname + parsed.path;
+  } else {
+    console.log('unsupport connect url protocol: ' + parsed.protocol);
+    return;
+  }
+
+  writeConnectionState({
+    connectState: 0,
+    connectedUrl
+  });
+  this._setupWebsocketConn(socketUrl);
+
+  this.onValuesPrefChange(readValuesWithDefault());
 };
 
 App.prototype._parseURLSimple = function(url) {
@@ -232,7 +298,10 @@ App.prototype.onConnect = function() {
   this.conn.isConnected = true;
   this.view.setConn(this.conn);
   console.info("pttchrome onConnect");
-  this.connectState = 1;
+  writeConnectionState({ connectState: 1 });
+  if (readConnectionState().activeAlert === 'connection') {
+    writeRuntimeAlert(null);
+  }
   this.updateTabIcon('connect');
   this.idleTime = 0;
   var self = this;
@@ -270,18 +339,12 @@ App.prototype.onClose = function() {
 
   this.cancelMbTimer();
 
-  this.connectState = 2;
+  writeRuntimeModalOpen(false);
+  writeConnectionState({
+    connectState: 2,
+    activeAlert: 'connection'
+  });
   this.idleTime = 0;
-
-  const onDismiss = () => {
-    ReactDOM.unmountComponentAtNode(container);
-    this.connect(this.connectedUrl.url);
-  }
-  const container = document.getElementById('reactAlert');
-  ReactDOM.render(
-    <ConnectionAlert onDismiss={onDismiss} />,
-    container
-  );
   this.updateTabIcon('disconnect');
 };
 
@@ -330,18 +393,40 @@ App.prototype.setInputAreaFocus = function() {
   this.inputArea.focus();
 };
 
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
-App.prototype.onToggleLiveHelperModalState = noop;
-// FIXME: Injected when enabled. See: src/components/ContextMenu/index.js
-App.prototype.onDisableLiveHelperModalState = noop;
+App.prototype.onToggleLiveHelperModalState = function() {
+  const liveHelperState = readLiveHelperState();
+  if (!liveHelperState.enabled) {
+    return;
+  }
+
+  this.setAutoPushthreadUpdate(-1);
+  writeLiveHelperState({
+    enabled: false,
+    sec: liveHelperState.sec
+  });
+};
+
+App.prototype.onDisableLiveHelperModalState = function() {
+  const liveHelperState = readLiveHelperState();
+  if (!liveHelperState.enabled) {
+    return;
+  }
+
+  this.setAutoPushthreadUpdate(-1);
+  writeLiveHelperState({
+    enabled: false,
+    sec: liveHelperState.sec
+  });
+};
 
 App.prototype.switchToEasyReadingMode = function(doSwitch) {
   this.easyReading.leaveCurrentPost();
+  const conn = this.view.conn;
   if (doSwitch) {
     this.onDisableLiveHelperModalState();
     // clear the deep cloned copy of lines
     this.buf.pageLines = [];
-    if (this.buf.pageState == 3) this.view.conn.send('\x1b[D\x1b[C'); //this.view.conn.send('qr');
+    if (this.buf.pageState == 3 && conn) conn.send('\x1b[D\x1b[C');
   } else {
     this.view.mainContainer.style.paddingBottom = '';
     this.view.lastRowIndex = 22;
@@ -351,7 +436,9 @@ App.prototype.switchToEasyReadingMode = function(doSwitch) {
     this.buf.pageLines = [];
   }
   // request the full screen
-  this.view.conn.send(unescapeStr('^L'));
+  if (conn) {
+    conn.send(unescapeStr('^L'));
+  }
 };
 
 App.prototype.doCopy = function(str) {
@@ -416,26 +503,8 @@ App.prototype.doPaste = function() {
 };
 
 App.prototype.showPasteUnimplemented = function() {
-  const container = document.getElementById('reactAlert')
-  const onDismiss = () => {
-    ReactDOM.unmountComponentAtNode(container)
-    this.modalShown = false;
-  }
-  ReactDOM.render(
-    <BaseModal
-      show
-      onExited={onDismiss}
-      backdropClassName="modal-backdrop"
-      containerClassName="modal-open"
-      transition={Fade}
-      dialogTransitionTimeout={Modal.TRANSITION_DURATION}
-      backdropTransitionTimeout={Modal.BACKDROP_TRANSITION_DURATION}
-    >
-      <PasteShortcutAlert onDismiss={onDismiss} />
-    </BaseModal>,
-    container
-  )
-  this.modalShown = true;
+  writeRuntimeModalOpen(true);
+  writeRuntimeAlert('pasteShortcut');
 };
 
 App.prototype.onPasteDone = function(content) {
@@ -560,14 +629,14 @@ App.prototype.antiIdle = function() {
 };
 
 App.prototype.updateTabIcon = function(aStatus) {
-  var icon = require('../icon/logo.png');
+  var icon = tabIconDefault;
   switch (aStatus) {
     case 'connect':
-      icon = require('../icon/logo_connect.png');
+      icon = tabIconConnect;
       this.setInputAreaFocus();
       break;
     case 'disconnect':
-      icon = require('../icon/logo_disconnect.png');
+      icon = tabIconDisconnect;
       break;
     default:
       break;
@@ -1178,10 +1247,8 @@ App.prototype.setBBSCmd = function setBBSCmd(cmd) {
 }
 
 App.prototype.setupContextMenus = function() {
-  ReactDOM.render(
-    <ContextMenu
-      pttchrome={this}
-    />,
-    document.getElementById('cmenuReact')
+  renderReactElement(
+    document.getElementById('cmenuReact'),
+    <ContextMenu pttchrome={this} />
   );
 };

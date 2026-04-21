@@ -4,12 +4,18 @@ import {
   parseReqNotMetText,
   parseStatusRow
 } from './string_util';
-import { readValuesWithDefault } from '../components/ContextMenu/PrefModal';
+import {
+  readConnectedUrl,
+  readValuesWithDefault,
+  subscribePreferenceValues
+} from '../store';
 
 export function EasyReading(core, view, termBuf) {
   this._core = core;
   this._view = view;
   this._termBuf = termBuf;
+  this._enabled = false;
+  this._preferenceValues = readValuesWithDefault();
 
   this._turnPageLines = 22;
 
@@ -29,19 +35,26 @@ export function EasyReading(core, view, termBuf) {
   bindProperty(this._termBuf, 'easyReadingShowReplyText', this);
   bindProperty(this._termBuf, 'easyReadingShowPushInitText', this);
 
+  this._unsubscribePreferenceValues = subscribePreferenceValues(values => {
+    this._preferenceValues = values;
+    if (!values.enableEasyReading) {
+      this._enabled = false;
+    }
+  });
+
   this._termBuf.addEventListener('change', this._onChanged.bind(this));
   this._termBuf.addEventListener('viewUpdate', this._onViewUpdated.bind(this));
 };
 
 EasyReading.prototype._onChanged = function(e) {
   console.log("page state: " + this._termBuf.prevPageState + "->" + this._termBuf.pageState);
-  const values = readValuesWithDefault()
+  const values = this._preferenceValues;
   // make sure to come back to easy reading mode
   if (this._termBuf.prevPageState == 2 &&
       this._termBuf.pageState == 3 &&
       !this._enabled && 
       values.enableEasyReading &&
-      this._core.connectedUrl.easyReadingSupported)
+      readConnectedUrl().easyReadingSupported)
   {
     this._enabled = true;
   } else if (!values.enableEasyReading) {

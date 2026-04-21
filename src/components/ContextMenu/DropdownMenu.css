@@ -1,18 +1,22 @@
 /* Boostrap overrides -- BEGIN */
-.DropdownMenu--reset > li > a {
+.DropdownMenu--reset > li > button {
   padding: 3px 20px 3px 30px;
   cursor: default;
   -webkit-user-select: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
 
-.DropdownMenu--reset > li > a:hover,
-.DropdownMenu--reset > li > a:focus {
+.DropdownMenu--reset > li > button:hover,
+.DropdownMenu--reset > li > button:focus {
   color: white;
   background-color: #428bca;
 }
 
-.DropdownMenu--reset > li > a:hover span,
-.DropdownMenu--reset > li > a:focus span {
+.DropdownMenu--reset > li > button:hover span,
+.DropdownMenu--reset > li > button:focus span {
   color: white;
 }
 /* Boostrap overrides -- END */
