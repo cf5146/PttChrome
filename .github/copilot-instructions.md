@@ -10,11 +10,11 @@
 - Install dependencies before running scripts.
 - Use `npm run build` for a production bundle and `npm run dev` or `npm start` for the Vite dev server.
 - There is no `test` or `lint` script in `package.json`.
-- The dev server proxies `/bbs` websocket traffic to `https://ws.ptt.cc` and sets a custom websocket `origin`; preserve that behavior when changing connection code.
+- The dev server proxies `/bbs` websocket traffic to `https://ptt-proxy.cf5146.workers.dev`; preserve that behavior when changing connection code.
 - If port `8080` is already occupied locally, use `npm run dev -- --port 8081` for smoke tests; keep the default development site pointing at `wstelnet://localhost:8080/bbs` unless the task intentionally changes connection behavior.
 
 ## Conventions
 - Put user-visible strings through `src/js/i18n.js` and update both locale tables: `src/js/en_US_messages.js` and `src/js/zh_TW_messages.js`.
 - Keep formatting changes scoped. `lint-staged` only auto-formats `*.json` and `src/components/**/*.{js,json,css}`, so avoid reformatting legacy `src/js/` files to match component code.
 - Preferences live in `src/components/ContextMenu/PrefModal.js` and are applied back into the core through `app.onValuesPrefChange(...)`; update defaults, storage, and consuming behavior together.
-- Connection defaults come from `src/js/runtime_env.js`: production uses `wsstelnet://ws.ptt.cc/bbs`, development uses `wstelnet://localhost:8080/bbs`, and query-string site overrides only work when `ALLOW_SITE_IN_QUERY=yes`.
+- Connection defaults come from `src/js/runtime_env.js`: production uses `wsstelnet://ptt-proxy.cf5146.workers.dev/bbs`, development uses `wstelnet://localhost:8080/bbs`, and query-string site overrides only work when `ALLOW_SITE_IN_QUERY=yes`.
