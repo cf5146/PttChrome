@@ -263,6 +263,34 @@ describe('ImagePreviewer helpers', () => {
     expect(image?.style.top).toBe('150px');
   });
 
+  it('keeps previews in view while minimizing cursor overlap when both sides clamp', async () => {
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 900);
+
+    await act(async () => {
+      root.render(
+        <HoverImagePreviewContent
+          left={300}
+          top={300}
+          value={{
+            src: DUMMY_WIDE_IMAGE_URL,
+            width: 700,
+            height: 300
+          }}
+          error={undefined}
+        />
+      );
+    });
+
+    const image = document.body.querySelector(
+      `img[src="${DUMMY_WIDE_IMAGE_URL}"]`
+    ) as HTMLImageElement | null;
+
+    expect(image?.style.left).toBe('280px');
+    expect(image?.style.top).toBe('150px');
+    expect(image?.style.pointerEvents).toBe('none');
+  });
+
   it('ignores late request resolution after unmount', async () => {
     const deferred = createDeferred<{ src: string }>();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});

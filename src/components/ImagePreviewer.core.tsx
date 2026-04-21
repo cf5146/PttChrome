@@ -50,6 +50,26 @@ const getEstimatedPreviewSize = ({
   };
 };
 
+const getHorizontalPreviewPosition = ({
+  left,
+  previewWidth,
+  viewportWidth,
+}: {
+  left: number;
+  previewWidth: number;
+  viewportWidth: number;
+}) => {
+  const maxLeft = viewportWidth - PREVIEW_EDGE_PADDING - previewWidth;
+  const preferredRight = left + PREVIEW_CURSOR_OFFSET;
+  const preferredLeft = left - PREVIEW_CURSOR_OFFSET - previewWidth;
+  const clampedRight = clamp(preferredRight, PREVIEW_EDGE_PADDING, maxLeft);
+  const clampedLeft = clamp(preferredLeft, PREVIEW_EDGE_PADDING, maxLeft);
+  const rightClearance = clampedRight - left;
+  const leftClearance = left - (clampedLeft + previewWidth);
+
+  return rightClearance >= leftClearance ? clampedRight : clampedLeft;
+};
+
 const getHoverPreviewPosition = ({
   left = 0,
   top = 0,
@@ -60,17 +80,14 @@ const getHoverPreviewPosition = ({
   preview: HoverPreviewSize;
 }) => {
   const viewport = getViewportSize();
-  const maxLeft = viewport.width - PREVIEW_EDGE_PADDING - preview.width;
   const maxTop = viewport.height - PREVIEW_EDGE_PADDING - preview.height;
-  const preferredRight = left + PREVIEW_CURSOR_OFFSET;
-  const preferredLeft = left - PREVIEW_CURSOR_OFFSET - preview.width;
-  const resolvedLeft =
-    preferredRight + preview.width <= viewport.width - PREVIEW_EDGE_PADDING
-      ? preferredRight
-      : preferredLeft;
 
   return {
-    left: clamp(resolvedLeft, PREVIEW_EDGE_PADDING, maxLeft),
+    left: getHorizontalPreviewPosition({
+      left,
+      previewWidth: preview.width,
+      viewportWidth: viewport.width,
+    }),
     top: clamp(top - preview.height / 2, PREVIEW_EDGE_PADDING, maxTop),
   };
 };
@@ -162,6 +179,7 @@ export const HoverImagePreviewContent = ({
           maxHeight: "80vh",
           maxWidth: "90vw",
           padding: 0,
+          pointerEvents: "none",
           zIndex: 2,
         }}
       />
@@ -175,6 +193,7 @@ export const HoverImagePreviewContent = ({
         position: "fixed",
         left: safeLeft + PREVIEW_CURSOR_OFFSET,
         top: safeTop,
+        pointerEvents: "none",
         zIndex: 2,
       }}
     />
