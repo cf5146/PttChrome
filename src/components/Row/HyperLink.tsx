@@ -11,7 +11,7 @@ export const HyperLink = ({
   onMouseOver,
   onMouseOut,
 }: HyperLinkProps) => {
-  const safeHref = getSafeExternalUrl(href ?? undefined) as string | null;
+  const safeHref = getSafeExternalUrl(href ?? undefined);
 
   if (!safeHref) {
     return (
@@ -23,8 +23,8 @@ export const HyperLink = ({
 
   return (
     <a
-      onMouseOver={onMouseOver}
-      onMouseOut={onMouseOut}
+      onMouseEnter={onMouseOver}
+      onMouseLeave={onMouseOut}
       onFocus={onMouseOver}
       onBlur={onMouseOut}
       data-scol={col}

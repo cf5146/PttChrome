@@ -69,10 +69,50 @@ describe("HyperLink", () => {
 
     expect(container.querySelector("a.y")).toBeNull();
 
-    const fallback = container.querySelector("span.y");
+    const fallback = container.querySelector<HTMLSpanElement>("span.y");
 
-    expect(fallback?.getAttribute("data-scol")).toBe("3");
-    expect(fallback?.getAttribute("data-srow")).toBe("4");
+    expect(fallback?.dataset.scol).toBe("3");
+    expect(fallback?.dataset.srow).toBe("4");
     expect(fallback?.textContent).toBe("Unsafe");
+  });
+
+  it("does not treat movement between link children as leaving the link", async () => {
+    let leaveCount = 0;
+
+    await act(async () => {
+      root.render(
+        <HyperLink
+          col={5}
+          row={6}
+          href="https://example.com"
+          inner={
+            <span>
+              <span className="HyperLink__first">A</span>
+              <span className="HyperLink__second">B</span>
+            </span>
+          }
+          onMouseOut={(_event) => {
+            leaveCount += 1;
+          }}
+        />
+      );
+    });
+
+    const first = container.querySelector(".HyperLink__first");
+    const second = container.querySelector(".HyperLink__second");
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+
+    act(() => {
+      first?.dispatchEvent(
+        new MouseEvent("mouseout", {
+          bubbles: true,
+          relatedTarget: second
+        })
+      );
+    });
+
+    expect(leaveCount).toBe(0);
   });
 });
