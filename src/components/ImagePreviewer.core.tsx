@@ -1,8 +1,10 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 import type {
   HoverImagePreviewContentProps,
   HoverImagePreviewProps,
+  HoverPreviewValue,
   InlineImagePreviewContentProps,
   InlineImagePreviewProps,
   PreviewRenderState,
@@ -10,19 +12,67 @@ import type {
   PreviewValue,
 } from "./ImagePreviewer.types";
 
-const getTop = (top = 0, height = 0) => {
-  const pageHeight =
-    globalThis.innerHeight || document.documentElement.clientHeight;
+const PREVIEW_EDGE_PADDING = 20;
+const PREVIEW_CURSOR_OFFSET = 20;
+const HOVER_PREVIEW_MAX_HEIGHT_RATIO = 0.8;
+const HOVER_PREVIEW_MAX_WIDTH_RATIO = 0.9;
 
-  if (top + height / 2 > pageHeight - 20) {
-    if (height / 2 < top) {
-      return pageHeight - 20 - height;
-    }
-  } else if (top - 20 > height / 2) {
-    return top - height / 2;
+type HoverPreviewSize = {
+  width: number;
+  height: number;
+};
+
+const clamp = (value: number, min: number, max: number) => {
+  if (max <= min) {
+    return min;
   }
 
-  return 20;
+  return Math.min(Math.max(value, min), max);
+};
+
+const getViewportSize = () => ({
+  width: globalThis.innerWidth || document.documentElement.clientWidth,
+  height: globalThis.innerHeight || document.documentElement.clientHeight,
+});
+
+const getEstimatedPreviewSize = ({
+  width,
+  height,
+}: HoverPreviewValue): HoverPreviewSize => {
+  const viewport = getViewportSize();
+  const maxWidth = viewport.width * HOVER_PREVIEW_MAX_WIDTH_RATIO;
+  const maxHeight = viewport.height * HOVER_PREVIEW_MAX_HEIGHT_RATIO;
+  const scale = Math.min(1, maxWidth / width, maxHeight / height);
+
+  return {
+    width: width * scale,
+    height: height * scale,
+  };
+};
+
+const getHoverPreviewPosition = ({
+  left = 0,
+  top = 0,
+  preview,
+}: {
+  left?: number;
+  top?: number;
+  preview: HoverPreviewSize;
+}) => {
+  const viewport = getViewportSize();
+  const maxLeft = viewport.width - PREVIEW_EDGE_PADDING - preview.width;
+  const maxTop = viewport.height - PREVIEW_EDGE_PADDING - preview.height;
+  const preferredRight = left + PREVIEW_CURSOR_OFFSET;
+  const preferredLeft = left - PREVIEW_CURSOR_OFFSET - preview.width;
+  const resolvedLeft =
+    preferredRight + preview.width <= viewport.width - PREVIEW_EDGE_PADDING
+      ? preferredRight
+      : preferredLeft;
+
+  return {
+    left: clamp(resolvedLeft, PREVIEW_EDGE_PADDING, maxLeft),
+    top: clamp(top - preview.height / 2, PREVIEW_EDGE_PADDING, maxTop),
+  };
 };
 
 const usePreviewState = <TValue extends PreviewValue>(
@@ -80,35 +130,50 @@ export const HoverImagePreviewContent = ({
 }: HoverImagePreviewContentProps) => {
   const safeLeft = left ?? 0;
   const safeTop = top ?? 0;
+  const renderInBody = (content: React.ReactNode) => {
+    if (typeof document === "undefined" || !document.body) {
+      return content;
+    }
+
+    return createPortal(content, document.body);
+  };
 
   if (error) {
     return null;
   }
 
   if (value) {
-    return (
+    const previewSize = getEstimatedPreviewSize(value);
+    const position = getHoverPreviewPosition({
+      left: safeLeft,
+      top: safeTop,
+      preview: previewSize,
+    });
+
+    return renderInBody(
       <img
         alt=""
         src={value.src}
         style={{
           display: "block",
-          position: "absolute",
-          left: safeLeft + 20,
-          top: getTop(safeTop, value.height),
-          maxHeight: "80%",
-          maxWidth: "90%",
+          position: "fixed",
+          left: position.left,
+          top: position.top,
+          maxHeight: "80vh",
+          maxWidth: "90vw",
+          padding: 0,
           zIndex: 2,
         }}
       />
     );
   }
 
-  return (
+  return renderInBody(
     <i
       className="glyphicon glyphicon-refresh glyphicon-refresh-animate"
       style={{
-        position: "absolute",
-        left: safeLeft + 20,
+        position: "fixed",
+        left: safeLeft + PREVIEW_CURSOR_OFFSET,
         top: safeTop,
         zIndex: 2,
       }}
