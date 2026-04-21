@@ -1,7 +1,11 @@
-import { defineConfig, transformWithEsbuild } from 'vite';
+import { defineConfig, loadEnv, transformWithEsbuild } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const websocketProxyOrigin =
+    env.PTTCHROME_PROXY_ORIGIN || 'https://cf5146.github.io';
+
   return {
     plugins: [
       {
@@ -48,7 +52,7 @@ export default defineConfig(() => {
           changeOrigin: true,
           configure(proxy) {
             proxy.on('proxyReqWs', proxyReq => {
-              proxyReq.setHeader('origin', 'https://term.ptt.cc');
+              proxyReq.setHeader('origin', websocketProxyOrigin);
             });
           },
         },
