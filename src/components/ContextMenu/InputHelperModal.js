@@ -1,8 +1,7 @@
-import cx from "classnames";
+import PropTypes from "prop-types";
 import React from "react";
 import {
   Modal,
-  Button,
   Tab,
   Row,
   Col,
@@ -514,7 +513,7 @@ const EMOTICONS = {
   angry: [
     "(ノ ゜Д゜)ノ ︵ ═╩════╩═",
     "╯-____-)╯~═╩════╩═~",
-    "(╭∩╮\\_/╭∩╮)",
+    String.raw`(╭∩╮\_/╭∩╮)`,
     "( ︶︿︶)_╭∩╮",
     "( ‵□′)───C＜─___-)|||",
     "(￣ε(#￣) #○=(一-一o)",
@@ -556,9 +555,9 @@ const EMOTICONS = {
     "<(￣︶￣)>",
     "v(￣︶￣)y",
     "﹨(╯▽╰)∕",
-    "\\(@^0^@)/",
-    "\\(^▽^)/",
-    "\\⊙▽⊙/"
+    String.raw`\(@^0^@)/`,
+    String.raw`\(^▽^)/`,
+    String.raw`\⊙▽⊙/`
   ],
 
   other: [
@@ -574,6 +573,11 @@ const EMOTICONS = {
     'o(‧"‧)o'
   ]
 };
+
+const COLOR_OPTIONS = Array.from({ length: 16 }, (_, index) => ({
+  fg: index,
+  bg: index < 8 ? index : undefined
+}));
 
 function sendColorCommand({ fg, bg, isBlink }, onCmdSend, type) {
   let lightColor = "0;";
@@ -610,7 +614,7 @@ export const InputHelperModal = ({
   const [isBlink, setIsBlink] = React.useState(false);
 
   const onColorClick = ({
-    target: {
+    currentTarget: {
       dataset: { fg: nextFg }
     }
   }) => {
@@ -619,7 +623,7 @@ export const InputHelperModal = ({
 
   const onColorContextMenu = event => {
     const {
-      target: { dataset }
+      currentTarget: { dataset }
     } = event;
 
     event.preventDefault();
@@ -639,8 +643,12 @@ export const InputHelperModal = ({
     sendColorCommand({ fg, bg, isBlink }, onCmdSend, eventKey);
   };
 
-  const onSymEmoClick = ({ target: { textContent } }) => {
-    onConvSend(textContent);
+  const onSymEmoClick = ({
+    currentTarget: {
+      dataset: { value }
+    }
+  }) => {
+    onConvSend(value);
   };
 
   const onMouseDown = ({ currentTarget: { dataset }, clientX, clientY }) => {
@@ -655,10 +663,19 @@ export const InputHelperModal = ({
     clientY
   }) => {
     if (dataset.dragActive === "true") {
+      const nextTop =
+        (Number.parseFloat(style.top) || 0) +
+        clientY -
+        (Number.parseFloat(dataset.dragLastY || "0") || 0);
+      const nextLeft =
+        (Number.parseFloat(style.left) || 0) +
+        clientX -
+        (Number.parseFloat(dataset.dragLastX || "0") || 0);
+
       globalThis.getSelection().removeAllRanges();
       style.cssText += `
-        top:${(parseFloat(style.top) || 0) + clientY - dataset.dragLastY}px;
-        left:${(parseFloat(style.left) || 0) + clientX - dataset.dragLastX}px;
+        top:${nextTop}px;
+        left:${nextLeft}px;
       `;
       dataset.dragLastX = clientX;
       dataset.dragLastY = clientY;
@@ -721,110 +738,19 @@ export const InputHelperModal = ({
                   <Row>
                     <Col xs={12} sm={7}>
                       <ul className="InputHelperModal__ColorList">
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b0"
-                          data-fg="0"
-                          data-bg="0"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b1"
-                          data-fg="1"
-                          data-bg="1"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b2"
-                          data-fg="2"
-                          data-bg="2"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b3"
-                          data-fg="3"
-                          data-bg="3"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b4"
-                          data-fg="4"
-                          data-bg="4"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b5"
-                          data-fg="5"
-                          data-bg="5"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b6"
-                          data-fg="6"
-                          data-bg="6"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b7"
-                          data-fg="7"
-                          data-bg="7"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b8"
-                          data-fg="8"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b9"
-                          data-fg="9"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b10"
-                          data-fg="10"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b11"
-                          data-fg="11"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b12"
-                          data-fg="12"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b13"
-                          data-fg="13"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b14"
-                          data-fg="14"
-                        />
-                        <li
-                          onClick={onColorClick}
-                          onContextMenu={onColorContextMenu}
-                          className="b15"
-                          data-fg="15"
-                        />
+                        {COLOR_OPTIONS.map(color => (
+                          <li key={color.fg}>
+                            <button
+                              type="button"
+                              className={`InputHelperModal__ColorButton b${color.fg}`}
+                              onClick={onColorClick}
+                              onContextMenu={onColorContextMenu}
+                              data-fg={color.fg}
+                              data-bg={color.bg}
+                              aria-label={`${i18n("colorTitle")} ${color.fg}`}
+                            />
+                          </li>
+                        ))}
                       </ul>
                     </Col>
                     <Col xs={12} sm={5}>
@@ -859,14 +785,10 @@ export const InputHelperModal = ({
                         title={i18n("colorHelperSend")}
                         onClick={onSendClick}
                       >
-                        <Dropdown.Item
-                          onClick={event => onSendSelect("foreground", event)}
-                        >
+                        <Dropdown.Item onClick={() => onSendSelect("foreground")}>
                           {i18n("colorHelperSendMenuFore")}
                         </Dropdown.Item>
-                        <Dropdown.Item
-                          onClick={event => onSendSelect("background", event)}
-                        >
+                        <Dropdown.Item onClick={() => onSendSelect("background")}>
                           {i18n("colorHelperSendMenuBack")}
                         </Dropdown.Item>
                         <Dropdown.Divider />
@@ -880,9 +802,16 @@ export const InputHelperModal = ({
                 {Object.keys(SYMBOLS).map(group => (
                   <Tab.Pane key={group} eventKey={`symbols.${group}`}>
                     <ul className="InputHelperModal__SymbolList">
-                      {SYMBOLS[group].map((it, index) => (
-                        <li key={index} onClick={onSymEmoClick}>
-                          {it}
+                      {SYMBOLS[group].map(it => (
+                        <li key={`${group}-${it}`}>
+                          <button
+                            type="button"
+                            className="InputHelperModal__SymbolButton"
+                            onClick={onSymEmoClick}
+                            data-value={it}
+                          >
+                            {it}
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -891,9 +820,16 @@ export const InputHelperModal = ({
                 {Object.keys(EMOTICONS).map(group => (
                   <Tab.Pane key={group} eventKey={`emoticons.${group}`}>
                     <ul className="InputHelperModal__EmoticonList">
-                      {EMOTICONS[group].map((it, index) => (
-                        <li key={index} onClick={onSymEmoClick}>
-                          {it}
+                      {EMOTICONS[group].map(it => (
+                        <li key={`${group}-${it}`}>
+                          <button
+                            type="button"
+                            className="InputHelperModal__EmoticonButton"
+                            onClick={onSymEmoClick}
+                            data-value={it}
+                          >
+                            {it}
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -906,6 +842,14 @@ export const InputHelperModal = ({
       </Modal.Body>
     </Modal>
   );
+};
+
+InputHelperModal.propTypes = {
+  show: PropTypes.bool.isRequired,
+  onReset: PropTypes.func.isRequired,
+  onHide: PropTypes.func.isRequired,
+  onCmdSend: PropTypes.func.isRequired,
+  onConvSend: PropTypes.func.isRequired
 };
 
 export default InputHelperModal;
