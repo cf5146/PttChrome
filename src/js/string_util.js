@@ -44,7 +44,7 @@ export function wrapText(it, maxLen, enterChar) {
   // and space characters in the beginning of original line. (indent)
   // Spaces next to a word group are merged into that group
   // to ensure the start of each wrapped line is a word.
-  // FIXME: full-width punctuation marks aren't recognized
+  // Note: full-width punctuation marks are not recognized here.
   let pattern = /\r|\n|([^\x00-\x7f][,.?!:;]?[\t ]*)|([\x00-\x08\x0b\x0c\x0e-\x1f\x21-\x7f]+[\t ]*)|[\t ]+/g;
   let splited = it.match(pattern);
 
@@ -54,8 +54,8 @@ export function wrapText(it, maxLen, enterChar) {
     // Convert special characters to spaces with the same width
     // and then we can get the width by the length of the converted string
     let grouplen = element.replace(/[^\x00-\x7f]/g,"  ")
-                             .replace(/\t/,"    ")
-                             .replace(/\r|\n/,"")
+                             .replace(/\t/g,"    ")
+                             .replace(/[\r\n]/g,"")
                              .length;
 
     if (element == '\r' || element == '\n')
@@ -130,10 +130,20 @@ export function parseReqNotMetText(it) {
 };
 
 export function parseStatusRow(str) {
-  let regex = new RegExp(/  瀏覽 第 (\d{1,3})(?:\/(\d{1,3}))? 頁 *\( *(\d{1,3})%\)  目前顯示: 第 0*(\d+)~0*(\d+) 行 *(?:\(y\)回應)?(?:\(X\/?%\)推文)?(?:\(h\)說明)? *\(←\/?q?\)離開 /g);
+  let regex = / {2}瀏覽 第 (\d{1,3})(?:\/(\d{1,3}))? 頁 *\( *(\d{1,3})%\) {2}目前顯示: 第 0*(\d+)~0*(\d+) 行 */;
   let result = regex.exec(str);
 
-  if (result && result.length === 6) {
+  if (result?.index !== 0) {
+    return null;
+  }
+
+  let suffix = str.substring(result[0].length);
+  let suffixRegex = /^(?:\(y\)回應)?(?:\(X\/?%\)推文)?(?:\(h\)說明)? *\(←\/?q?\)離開 $/;
+  if (!suffixRegex.test(suffix)) {
+    return null;
+  }
+
+  if (result?.length === 6) {
     return {
       pageIndex:     Number.parseInt(result[1]),
       pageTotal:     Number.parseInt(result[2]),
@@ -152,12 +162,15 @@ export function parseListRow(str) {
 };
 
 export function parseWaterball(str) {
-  let regex = new RegExp(/\x1b\[1;33;46m\u2605(\w+)\x1b\[0;1;37;45m (.+) \x1b\[m\x1b\[K/g);
+  let esc = String.fromCodePoint(0x1b);
+  let regex = new RegExp(
+      String.raw`${esc}\[1;33;46m★(\w+)${esc}\[0;1;37;45m (.+) ${esc}\[m${esc}\[K`, 'g');
   let result = regex.exec(str);
   if (result?.length == 3) {
     return { userId: result[1], message: result[2] };
   } else {
-    regex = new RegExp(/\x1b\[24;\d{2}H\x1b\[1;37;45m([^\x1b]+)(?:\x1b\[24;18H)?\x1b\[m/g);
+    regex = new RegExp(
+        String.raw`${esc}\[24;\d{2}H${esc}\[1;37;45m([^${esc}]+)(?:${esc}\[24;18H)?${esc}\[m`, 'g');
     result = regex.exec(str);
     if (result?.length == 2) {
       return { message: result[1] };
@@ -169,7 +182,8 @@ export function parseWaterball(str) {
 
 export function ansiHalfColorConv(it) {
   let str = '';
-  let regex = new RegExp('\x15\\[(([0-9]+)?;)+50m', 'g');
+  let ctrlU = String.fromCodePoint(0x15);
+  let regex = new RegExp(String.raw`${ctrlU}\[((\d+)?;)+50m`, 'g');
   let result = null;
   let indices = [];
   while ((result = regex.exec(it))) {
@@ -183,7 +197,7 @@ export function ansiHalfColorConv(it) {
   let curInd = 0;
   for (const element of indices) {
     let ind = element;
-    let preEscInd = it.substring(curInd, ind).lastIndexOf('\x15') + curInd;
+    let preEscInd = it.substring(curInd, ind).lastIndexOf(ctrlU) + curInd;
     str += it.substring(curInd, preEscInd) + '\x00' + it.substring(ind+4, ind+5) + it.substring(preEscInd, ind) + 'm';
     curInd = ind+5;
   }
