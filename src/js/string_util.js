@@ -5,11 +5,11 @@
  * If you want to show \ and ^, use \\ and \^ respectively
  */ 
 export function unescapeStr(it) {
-  var result = '';
+  let result = '';
 
-  for (var i = 0; i < it.length; ++i) {
-    var curChar = it.charAt(i);
-    var nextChar = it.charAt(i+1);
+  for (let i = 0; i < it.length; ++i) {
+    let curChar = it.charAt(i);
+    let nextChar = it.charAt(i+1);
     
     if (i == it.length - 1) {
       result += curChar;
@@ -20,8 +20,8 @@ export function unescapeStr(it) {
       result += nextChar;
     } else if (curChar == '^') {
       if ('@' <= nextChar && nextChar <= '_') {
-        var code = it.charCodeAt(i+1) - 64;
-        result += String.fromCharCode(code);
+        let code = it.codePointAt(i+1) - 64;
+        result += String.fromCodePoint(code);
         i++;
       } else if (nextChar == '?') {
         result += '\x7f';
@@ -44,43 +44,43 @@ export function wrapText(it, maxLen, enterChar) {
   // and space characters in the beginning of original line. (indent)
   // Spaces next to a word group are merged into that group
   // to ensure the start of each wrapped line is a word.
-  // FIXME: full-width punctuation marks aren't recognized
-  var pattern = /\r|\n|([^\x00-\x7f][,.?!:;]?[\t ]*)|([\x00-\x08\x0b\x0c\x0e-\x1f\x21-\x7f]+[\t ]*)|[\t ]+/g;
-  var splited = it.match(pattern);
+  // Note: full-width punctuation marks are not recognized here.
+  let pattern = /\r|\n|([^\x00-\x7f][,.?!:;]?[\t ]*)|([\x00-\x08\x0b\x0c\x0e-\x1f\x21-\x7f]+[\t ]*)|[\t ]+/g;
+  let splited = it.match(pattern);
 
-  var result = '';
-  var len = 0;
-  for (var i = 0; i < splited.length; ++i) {
+  let result = '';
+  let len = 0;
+  for (const element of splited) {
     // Convert special characters to spaces with the same width
     // and then we can get the width by the length of the converted string
-    var grouplen = splited[i].replace(/[^\x00-\x7f]/g,"  ")
-                             .replace(/\t/,"    ")
-                             .replace(/\r|\n/,"")
+    let grouplen = element.replace(/[^\x00-\x7f]/g,"  ")
+                             .replace(/\t/g,"    ")
+                             .replace(/[\r\n]/g,"")
                              .length;
 
-    if (splited[i] == '\r' || splited[i] == '\n')
+    if (element == '\r' || element == '\n')
       len = 0;
     if (len + grouplen > maxLen) {
       result += enterChar;
       len = 0;
     }
-    result += splited[i];
+    result += element;
     len += grouplen;
   }
   return result;
 };
 
 export function u2b(it) {
-  var data = '';
-  for (var i = 0; i < it.length; ++i) {
+  let data = '';
+  for (let i = 0; i < it.length; ++i) {
     if (it.charAt(i) < '\x80') {
       data += it.charAt(i);
       continue;
     }
-    var pos = it.charCodeAt(i);
-    var hi = lib.u2bArray[2*pos], lo = lib.u2bArray[2*pos+1];
+    let pos = it.codePointAt(i);
+    let hi = lib.u2bArray[2*pos], lo = lib.u2bArray[2*pos+1];
     if (hi || lo)
-      data += String.fromCharCode(hi) + String.fromCharCode(lo);
+      data += String.fromCodePoint(hi) + String.fromCodePoint(lo);
     else // Not a big5 char
       data += '\xFF\xFD';
   }
@@ -88,17 +88,17 @@ export function u2b(it) {
 };
 
 export function b2u(it) {
-  var str = '';
-  for (var i = 0; i < it.length; ++i) {
+  let str = '';
+  for (let i = 0; i < it.length; ++i) {
     if (it.charAt(i) < '\x80' || i == it.length-1) {
       str += it.charAt(i);
       continue;
     }
 
-    var pos = it.charCodeAt(i) << 8 | it.charCodeAt(i+1);
-    var code = lib.b2uArray[2*pos] << 8 | lib.b2uArray[2*pos+1];
+    let pos = it.codePointAt(i) << 8 | it.codePointAt(i+1);
+    let code = lib.b2uArray[2*pos] << 8 | lib.b2uArray[2*pos+1];
     if (code) {
-      str += String.fromCharCode(code);
+      str += String.fromCodePoint(code);
       ++i;
     } else { // Not a big5 char
       str += it.charAt(i);
@@ -108,7 +108,7 @@ export function b2u(it) {
 };
 
 export function isDBCSLead(ch) {
-  let code = ch.charCodeAt(0);
+  let code = ch.codePointAt(0);
   return code >= 0x81 && code <= 0xfe;
 };
 
@@ -130,16 +130,26 @@ export function parseReqNotMetText(it) {
 };
 
 export function parseStatusRow(str) {
-  var regex = new RegExp(/  瀏覽 第 (\d{1,3})(?:\/(\d{1,3}))? 頁 *\( *(\d{1,3})%\)  目前顯示: 第 0*(\d+)~0*(\d+) 行 *(?:\(y\)回應)?(?:\(X\/?%\)推文)?(?:\(h\)說明)? *\(←\/?q?\)離開 /g);
-  var result = regex.exec(str);
+  let regex = / {2}瀏覽 第 (\d{1,3})(?:\/(\d{1,3}))? 頁 *\( *(\d{1,3})%\) {2}目前顯示: 第 0*(\d+)~0*(\d+) 行 */;
+  let result = regex.exec(str);
 
-  if (result && result.length === 6) {
+  if (result?.index !== 0) {
+    return null;
+  }
+
+  let suffix = str.substring(result[0].length);
+  let suffixRegex = /^(?:\(y\)回應)?(?:\(X\/?%\)推文)?(?:\(h\)說明)? *\(←\/?q?\)離開 $/;
+  if (!suffixRegex.test(suffix)) {
+    return null;
+  }
+
+  if (result?.length === 6) {
     return {
-      pageIndex:     parseInt(result[1]),
-      pageTotal:     parseInt(result[2]),
-      pagePercent:   parseInt(result[3]),
-      rowIndexStart: parseInt(result[4]),
-      rowIndexEnd:   parseInt(result[5])
+      pageIndex:     Number.parseInt(result[1]),
+      pageTotal:     Number.parseInt(result[2]),
+      pagePercent:   Number.parseInt(result[3]),
+      rowIndexStart: Number.parseInt(result[4]),
+      rowIndexEnd:   Number.parseInt(result[5])
     };
   }
 
@@ -147,19 +157,22 @@ export function parseStatusRow(str) {
 };
 
 export function parseListRow(str) {
-  var regex = new RegExp(/\[\d{1,2}\/\d{1,2} +星期. +\d{1,2}:\d{1,2}\] .+ 線上\d+人, 我是\w+ +\[呼叫器\](?:關閉|打開) /g);
+  let regex = new RegExp(/\[\d{1,2}\/\d{1,2} +星期. +\d{1,2}:\d{1,2}\] .+ 線上\d+人, 我是\w+ +\[呼叫器\](?:關閉|打開) /g);
   return regex.test(str);
 };
 
 export function parseWaterball(str) {
-  var regex = new RegExp(/\x1b\[1;33;46m\u2605(\w+)\x1b\[0;1;37;45m (.+) \x1b\[m\x1b\[K/g);
-  var result = regex.exec(str);
-  if (result && result.length == 3) {
+  let esc = String.fromCodePoint(0x1b);
+  let regex = new RegExp(
+      String.raw`${esc}\[1;33;46m★(\w+)${esc}\[0;1;37;45m (.+) ${esc}\[m${esc}\[K`, 'g');
+  let result = regex.exec(str);
+  if (result?.length == 3) {
     return { userId: result[1], message: result[2] };
   } else {
-    regex = new RegExp(/\x1b\[24;\d{2}H\x1b\[1;37;45m([^\x1b]+)(?:\x1b\[24;18H)?\x1b\[m/g);
+    regex = new RegExp(
+        String.raw`${esc}\[24;\d{2}H${esc}\[1;37;45m([^${esc}]+)(?:${esc}\[24;18H)?${esc}\[m`, 'g');
     result = regex.exec(str);
-    if (result && result.length == 2) {
+    if (result?.length == 2) {
       return { message: result[1] };
     }
   }
@@ -168,10 +181,11 @@ export function parseWaterball(str) {
 };
 
 export function ansiHalfColorConv(it) {
-  var str = '';
-  var regex = new RegExp('\x15\\[(([0-9]+)?;)+50m', 'g');
-  var result = null;
-  var indices = [];
+  let str = '';
+  let ctrlU = String.fromCodePoint(0x15);
+  let regex = new RegExp(String.raw`${ctrlU}\[((\d+)?;)+50m`, 'g');
+  let result = null;
+  let indices = [];
   while ((result = regex.exec(it))) {
     indices.push(result.index + result[0].length - 4);
   }
@@ -180,10 +194,10 @@ export function ansiHalfColorConv(it) {
     return it;
   }
 
-  var curInd = 0;
-  for (var i = 0; i < indices.length; ++i) {
-    var ind = indices[i];
-    var preEscInd = it.substring(curInd, ind).lastIndexOf('\x15') + curInd;
+  let curInd = 0;
+  for (const element of indices) {
+    let ind = element;
+    let preEscInd = it.substring(curInd, ind).lastIndexOf(ctrlU) + curInd;
     str += it.substring(curInd, preEscInd) + '\x00' + it.substring(ind+4, ind+5) + it.substring(preEscInd, ind) + 'm';
     curInd = ind+5;
   }
