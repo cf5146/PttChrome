@@ -12,13 +12,13 @@ AnsiParser.STATE_CSI = 2;
 AnsiParser.STATE_C1 = 3;
 
 AnsiParser.prototype.feed = function(data) {
-  var term = this.termbuf;
+  let term = this.termbuf;
   if (!term)
     return;
-  var s = '';
-  var n = data.length;
-  for (var i = 0; i < n; ++i) {
-    var ch = data[i];
+  let s = '';
+  let n = data.length;
+  for (let i = 0; i < n; ++i) {
+    let ch = data[i];
     switch (this.state) {
     case AnsiParser.STATE_TEXT:
       switch (ch) {
@@ -37,8 +37,8 @@ AnsiParser.prototype.feed = function(data) {
       if ( (ch >= '`' && ch <= 'z') || (ch >= '@' && ch <='Z') ) {
         // if(ch != 'm')
         //    dump('CSI: ' + this.esc + ch + '\n');
-        var params=this.esc.split(';');
-        var firstChar = '';
+        let params=this.esc.split(';');
+        let firstChar = '';
         if (params[0]) {
           if (params[0].charAt(0)<'0' || params[0].charAt(0)>'9') {
             firstChar = params[0].charAt(0);
@@ -51,9 +51,9 @@ AnsiParser.prototype.feed = function(data) {
           this.esc = '';
           break;
         }
-        for (var j=0; j<params.length; ++j) {
+        for (let j=0; j<params.length; ++j) {
           if ( params[j] )
-            params[j] = parseInt(params[j], 10);
+            params[j] = Number.parseInt(params[j], 10);
           else
             params[j] = 0;
         }
@@ -221,8 +221,8 @@ AnsiParser.prototype.feed = function(data) {
       var C1_End = true;
       var C1_Char = [' ', '#', '%', '(', ')', '*', '+', '-', '.', '/'];
       if (this.esc) { // multi-char is not supported now
-        for (var j = 0; j < C1_Char.length; ++j)
-          if (this.esc == C1_Char[j]) C1_End = false;
+        for (const element of C1_Char)
+          if (this.esc == element) C1_End = false;
         if (C1_End) --i;
         else this.esc += ch;
         //dump('UNKNOWN C1 CONTROL CHAR IS FOUND: ' + this.esc + '\n');

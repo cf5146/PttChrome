@@ -86,7 +86,7 @@ EasyReading.prototype._onChanged = function(e) {
       }
       var result = parseStatusRow(lastRowText);
       if (result) {
-        var lastRowFirstCh = this._termBuf.lines[lastRowNum][0];
+        let lastRowFirstCh = this._termBuf.lines[lastRowNum][0];
         if (lastRowFirstCh.getBg() == 4 && lastRowFirstCh.getFg() == 7) {
           this.easyReadingReachedPageEnd = true;
         } else {
@@ -112,7 +112,7 @@ EasyReading.prototype._onChanged = function(e) {
         }
       }
     } else if (this._termBuf.cur_y == 22) {
-      var secondToLastRowText = this._termBuf.getRowText(22, 0, this._termBuf.cols);
+      let secondToLastRowText = this._termBuf.getRowText(22, 0, this._termBuf.cols);
       var result = parseReplyText(secondToLastRowText);
       if (result) {
         this.easyReadingShowReplyText = true;
@@ -163,7 +163,7 @@ EasyReading.prototype._onKeyDown = function(e) {
   if (e.defaultPrevented)
     return;
 
-  var stop = false;
+  let stop = false;
   if (!e.ctrlKey && !e.altKey) {
     switch (e.key) {
       case 'Backspace':
@@ -189,7 +189,7 @@ EasyReading.prototype._onKeyDown = function(e) {
 };
 
 EasyReading.prototype._scrollBy = function(lines) {
-  var cont = this._view.mainDisplay;
+  let cont = this._view.mainDisplay;
   if (lines < 0 && cont.scrollTop == 0)
     return false;
   if (lines > 0 && cont.scrollTop >=
@@ -211,7 +211,7 @@ EasyReading.prototype._scrollTop = function() {
 };
 
 EasyReading.prototype._onKeyDownProcessUI = function(e) {
-  var stop = false;
+  let stop = false;
   if (!e.ctrlKey && !e.altKey) {
     switch (e.key) {
       case 'Backspace':
@@ -274,7 +274,7 @@ EasyReading.prototype._onKeyDownProcessUI = function(e) {
           this.leaveCurrentPost();
           break;
         }
-        if ("123456789hops;,./\\H#OP:<>".indexOf(e.key) >= 0) {
+        if (String.raw`123456789hops;,./\H#OP:<>`.indexOf(e.key) >= 0) {
           stop = true;
           break;
         }
@@ -308,7 +308,7 @@ EasyReading.prototype._onKeyDownProcessUI = function(e) {
 EasyReading.prototype._onMouseClick = function(e) {
   if (!this._enabled || !this.startedEasyReading)
     return;
-  var stop = false;
+  let stop = false;
   // XXX Should not use term buffer to track mouse cursor.
   switch (this._termBuf.mouseCursor) {
     case 0:
