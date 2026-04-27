@@ -4,6 +4,7 @@ import { TermView } from './term_view';
 import { TermBuf } from './term_buf';
 import { TelnetConnection } from './telnet';
 import { Websocket } from './websocket';
+import { WorkerWebsocket } from './worker_websocket';
 import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
 import {
@@ -271,7 +272,15 @@ App.prototype._parseURLSimple = function(url) {
 };
 
 App.prototype._setupWebsocketConn = function(url) {
-  const wsConn = new Websocket(url);
+  let wsConn;
+
+  try {
+    wsConn = new WorkerWebsocket(url);
+  } catch (error) {
+    console.warn('WorkerWebsocket failed, falling back to Websocket:', error);
+    wsConn = new Websocket(url);
+  }
+
   this._attachConn(new TelnetConnection(wsConn));
 };
 
@@ -299,7 +308,9 @@ App.prototype.onConnect = function() {
   this.updateTabIcon('connect');
   this.idleTime = 0;
   this.timerEverySec = setTimer(true, () => {
-    this.antiIdle();
+    if (!this.conn?.socket?.handlesAntiIdle) {
+      this.antiIdle();
+    }
     this.view.onBlink();
     this.incrementCountToUpdatePushthread();
   }, 1000);
@@ -337,6 +348,9 @@ App.prototype.onClose = function() {
     connectState: 2,
     activeAlert: 'connection'
   });
+  if (this.conn?.socket?.dispose) {
+    this.conn.socket.dispose();
+  }
   this.idleTime = 0;
   this.updateTabIcon('disconnect');
 };
@@ -613,6 +627,13 @@ App.prototype.antiIdle = function() {
     }
   } else if (this.connectState == 1) {
     this.idleTime += 1000;
+  }
+};
+
+App.prototype._applyAntiIdleTimePreference = function(value) {
+  this.antiIdleTime = value * 1000;
+  if (this.conn?.socket?.setAntiIdleTime) {
+    this.conn.socket.setAntiIdleTime(this.antiIdleTime);
   }
 };
 
@@ -930,7 +951,7 @@ App.prototype.onPrefChange = function(name, value) {
     case 'enableEasyReading':
       break;
     case 'antiIdleTime':
-      this.antiIdleTime = value * 1000;
+      this._applyAntiIdleTimePreference(value);
       break;
     case 'dbcsDetect':
       this.view.dbcsDetect = value;
