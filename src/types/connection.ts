@@ -62,6 +62,6 @@ export interface TerminalSocket {
     name: 'open' | 'data' | 'close' | 'error',
     listener: (event: CustomEvent<ConnectionDataDetail> | Event) => void
   ): void;
-  send(data: string | ArrayBuffer): void;
+  send(data: string): void;
   close?(): void;
 }
