@@ -435,7 +435,32 @@ App.prototype.doCopy = function(str) {
   if (str.indexOf('\x1b') < 0) {
     str = str.replace(/\r\n/g, '\r');
     str = str.replace(/\n/g, '\r');
-    str = str.replace(/ +\r/g, '\r');
+    // Remove spaces immediately before CR characters in linear time.
+    let normalized = '';
+    let pendingSpaces = 0;
+    for (const ch of str) {
+      if (ch === ' ') {
+        ++pendingSpaces;
+        continue;
+      }
+
+      if (ch === '\r') {
+        pendingSpaces = 0;
+        normalized += ch;
+        continue;
+      }
+
+      if (pendingSpaces > 0) {
+        normalized += ' '.repeat(pendingSpaces);
+        pendingSpaces = 0;
+      }
+      normalized += ch;
+    }
+
+    if (pendingSpaces > 0) {
+      normalized += ' '.repeat(pendingSpaces);
+    }
+    str = normalized;
   }
   this.strToCopy = str;
   document.execCommand('copy');
