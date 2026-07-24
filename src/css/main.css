@@ -98,13 +98,21 @@
 }
 
 .linkurl {
-  text-decoration:underline;
+  text-decoration: underline;
   color:#FF00FF;
 }
 
-a:link,a:visited,a:active,a:hover {
+a.linkurl:link,
+a.linkurl:visited,
+a.linkurl:active,
+a.linkurl:hover {
   background-position: 0% 90%;
-  text-decoration:none;
+  text-decoration: underline;
+}
+
+a.linkurl:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .main > span, 
