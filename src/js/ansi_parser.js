@@ -1,4 +1,5 @@
 // Parser for ANSI escape sequence
+import { RESOURCE_LIMITS } from './resource_limits';
 
 export function AnsiParser(termbuf) {
   this.termbuf = termbuf;
@@ -10,6 +11,11 @@ AnsiParser.STATE_TEXT = 0;
 AnsiParser.STATE_ESC = 1;
 AnsiParser.STATE_CSI = 2;
 AnsiParser.STATE_C1 = 3;
+
+AnsiParser.prototype.reset = function() {
+  this.state = AnsiParser.STATE_TEXT;
+  this.esc = '';
+};
 
 AnsiParser.prototype.feed = function(data) {
   let term = this.termbuf;
@@ -215,6 +221,9 @@ AnsiParser.prototype.feed = function(data) {
         this.esc = '';
       } else {
         this.esc += ch;
+        if (this.esc.length > RESOURCE_LIMITS.maxEscapeSequenceLength) {
+          this.reset();
+        }
       }
       break;
     case AnsiParser.STATE_C1:
@@ -225,6 +234,10 @@ AnsiParser.prototype.feed = function(data) {
           if (this.esc == element) C1_End = false;
         if (C1_End) --i;
         else this.esc += ch;
+        if (this.esc.length > RESOURCE_LIMITS.maxEscapeSequenceLength) {
+          this.reset();
+          break;
+        }
         //dump('UNKNOWN C1 CONTROL CHAR IS FOUND: ' + this.esc + '\n');
         this.esc = '';
         this.state = AnsiParser.STATE_TEXT;
@@ -261,6 +274,10 @@ AnsiParser.prototype.feed = function(data) {
       default:
         this.esc += ch;
         C1_End=false;
+        if (this.esc.length > RESOURCE_LIMITS.maxEscapeSequenceLength) {
+          this.reset();
+          break;
+        }
       }
       if (!C1_End) break;
       this.esc = '';

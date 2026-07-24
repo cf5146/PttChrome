@@ -7,6 +7,9 @@
     "message": "專為 BBS 瀏覽設計，採 GNU/GPL 授權的 telnet 連線程式套件",
     "description":"The description of the application, displayed in the web store."
   },
+  "alert_buildInfo": {
+    "message": "建置"
+  },
 
   // side menus
   "menu_coloredCopy": {

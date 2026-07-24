@@ -2,6 +2,7 @@ import cx from "classnames";
 import PropTypes from "prop-types";
 import React from "react";
 import { openExternalUrl } from "../../js/util";
+import { RESOURCE_LIMITS } from "../../js/resource_limits";
 import { useContextMenuStore } from "../../store";
 import DropdownMenu from "./DropdownMenu";
 import InputHelperModal from "./InputHelperModal";
@@ -217,7 +218,9 @@ export const ContextMenu = ({ pttchrome }) => {
 
   const onInputHelperConvSend = React.useCallback(
     value => {
-      pttchrome.conn.convSend(value);
+      pttchrome.conn.convSend(
+        String(value).slice(0, RESOURCE_LIMITS.maxInputHelperLength)
+      );
     },
     [pttchrome]
   );

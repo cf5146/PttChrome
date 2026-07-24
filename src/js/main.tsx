@@ -5,6 +5,7 @@ import { renderReactElement } from './react_roots';
 import { ALLOW_SITE_IN_QUERY, DEFAULT_SITE, DEVELOPER_MODE } from './runtime_env';
 import { writeRuntimeAlert } from '../store';
 import { getQueryVariable } from './util';
+import { getSafeConnectionUrl } from './connection_url';
 
 const b2uTableUrl = new URL('../conv/b2u_table.bin', import.meta.url).href;
 const u2bTableUrl = new URL('../conv/u2b_table.bin', import.meta.url).href;
@@ -15,6 +16,18 @@ function showDeveloperModeAlert() {
   }
 
   writeRuntimeAlert('developerMode');
+}
+
+function getInitialSite() {
+  if (!ALLOW_SITE_IN_QUERY) {
+    return DEFAULT_SITE;
+  }
+
+  try {
+    return getSafeConnectionUrl(getQueryVariable('site')) || DEFAULT_SITE;
+  } catch {
+    return DEFAULT_SITE;
+  }
 }
 
 function startApp() {
@@ -30,9 +43,7 @@ function startApp() {
   showDeveloperModeAlert();
 
   // connect.
-  app.connect(
-    ALLOW_SITE_IN_QUERY && getQueryVariable('site')
-    || DEFAULT_SITE);
+  app.connect(getInitialSite());
   app.setInputAreaFocus();
   $('#BBSWindow').show();
   app.onWindowResize();

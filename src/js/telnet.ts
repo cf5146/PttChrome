@@ -55,6 +55,7 @@ export interface TelnetConnection extends TerminalConnection {
   isConnected?: boolean;
   dispatchEvent(e: CustomEvent): void;
   _onOpen(e: unknown): void;
+  _onError(e: unknown): void;
   _onClose(e: unknown): void;
   _onDataAvailable(e: CustomEvent<ConnectionDataDetail>): void;
   _handleTelnetChar(ch: string, data: string): string;
@@ -71,6 +72,7 @@ export function TelnetConnection(this: TelnetConnection, socket: TerminalSocket)
   this.socket = socket;
   this.socket.addEventListener('open', this._onOpen.bind(this));
   this.socket.addEventListener('data', this._onDataAvailable.bind(this));
+  this.socket.addEventListener('error', this._onError.bind(this));
   this.socket.addEventListener('close', this._onClose.bind(this));
 
   this.state = STATE_DATA;
@@ -83,6 +85,10 @@ Event.mixin(TelnetConnection.prototype);
 
 TelnetConnection.prototype._onOpen = function(_e: unknown) {
   this.dispatchEvent(new CustomEvent('open'));
+};
+
+TelnetConnection.prototype._onError = function(_e: unknown) {
+  this.dispatchEvent(new CustomEvent('error'));
 };
 
 TelnetConnection.prototype._onClose = function(_e: unknown) {
@@ -213,6 +219,12 @@ TelnetConnection.prototype.send = function(str: string) {
 TelnetConnection.prototype._sendRaw = function(data: string) {
   if (data) {
     this.socket.send(data);
+  }
+};
+
+TelnetConnection.prototype.close = function() {
+  if (this.socket.close) {
+    this.socket.close();
   }
 };
 

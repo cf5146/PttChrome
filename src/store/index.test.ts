@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   isAnyModalOpen,
   isAppConnected,
+  parsePersistedPreferences,
   readConnectedUrl,
+  readConnectionState,
   readValuesWithDefault,
   resetValues,
   useContextMenuStore,
@@ -45,7 +47,8 @@ describe('store helpers', () => {
     });
     expect(JSON.parse(localStorage.getItem('pttchrome.pref.v1') || 'null'))
       .toEqual({
-        values: expect.objectContaining({
+        version: 1,
+        preferences: expect.objectContaining({
           lineWrap: 120,
           termSize: {
             cols: 100,
@@ -53,6 +56,48 @@ describe('store helpers', () => {
           }
         })
       });
+  });
+
+  it('migrates legacy preferences and rejects unknown envelopes', () => {
+    expect(
+      parsePersistedPreferences({
+        values: {
+          lineWrap: 120,
+          termSize: { cols: 100 }
+        }
+      })
+    ).toEqual(expect.objectContaining({
+      lineWrap: 120,
+      termSize: { cols: 100, rows: 24 }
+    }));
+
+    expect(
+      parsePersistedPreferences({
+        version: 99,
+        preferences: { lineWrap: 120 }
+      })
+    ).toBeNull();
+  });
+
+  it('defaults invalid persisted fields without merging their values', () => {
+    const values = parsePersistedPreferences({
+      version: 1,
+      preferences: {
+        fontSize: 'large',
+        fontFace: { family: 'unsafe' },
+        termSize: { cols: 0, rows: 40 },
+        enablePicPreview: 'yes',
+        lineWrap: 120
+      }
+    });
+
+    expect(values).toEqual(expect.objectContaining({
+      fontSize: 20,
+      fontFace: 'MingLiu,SymMingLiu,monospace',
+      enablePicPreview: true,
+      lineWrap: 120,
+      termSize: { cols: 80, rows: 40 }
+    }));
   });
 
   it('normalizes connectedUrl updates and tracks connected state', () => {
@@ -66,7 +111,9 @@ describe('store helpers', () => {
     });
 
     expect(nextState).toEqual({
+      lifecycle: 'connected',
       connectState: 1,
+      sessionId: 0,
       connectedUrl: {
         url: 'wstelnet://localhost:8080/bbs',
         site: 'localhost',
@@ -77,6 +124,30 @@ describe('store helpers', () => {
     });
     expect(readConnectedUrl()).toEqual(nextState.connectedUrl);
     expect(isAppConnected()).toBe(true);
+  });
+
+  it('projects explicit lifecycle transitions to compatibility state codes', () => {
+    writeConnectionState({
+      lifecycle: 'connecting',
+      sessionId: 7
+    });
+
+    expect(readConnectionState()).toEqual(expect.objectContaining({
+      lifecycle: 'connecting',
+      connectState: 0,
+      sessionId: 7
+    }));
+
+    writeConnectionState({
+      lifecycle: 'connected',
+      sessionId: 7
+    });
+
+    expect(readConnectionState()).toEqual(expect.objectContaining({
+      lifecycle: 'connected',
+      connectState: 1,
+      sessionId: 7
+    }));
   });
 
   it('reports modal visibility for both settings and runtime modals', () => {

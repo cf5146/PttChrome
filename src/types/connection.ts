@@ -2,6 +2,15 @@ export type ProtocolType = 'wstelnet' | 'wsstelnet';
 
 export type ConnectionStatusCode = 0 | 1 | 2;
 
+export type ConnectionLifecycle =
+  | 'idle'
+  | 'connecting'
+  | 'authenticating'
+  | 'connected'
+  | 'disconnecting'
+  | 'disconnected'
+  | 'failed';
+
 export type ConnectionConfig = {
   url: string;
   protocol: ProtocolType;
@@ -22,7 +31,9 @@ export type ConnectedUrl = {
 export type RuntimeAlertKind = 'connection' | 'developerMode' | 'pasteShortcut' | null;
 
 export type ConnectionState = {
+  lifecycle: ConnectionLifecycle;
   connectState: ConnectionStatusCode;
+  sessionId: number;
   connectedUrl: ConnectedUrl;
   activeAlert: RuntimeAlertKind;
 };

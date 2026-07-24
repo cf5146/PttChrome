@@ -42,6 +42,8 @@ jobs:
         run: corepack yarn install --immutable
 
       - name: Build application
+        env:
+          BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
         run: corepack yarn build
 
       - name: Upload Pages artifact

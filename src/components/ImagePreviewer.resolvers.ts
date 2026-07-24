@@ -1,4 +1,5 @@
-import { decode } from "base58";
+import { getSafeImageUrl } from "../js/util";
+import { RESOURCE_LIMITS } from "../js/resource_limits";
 
 import type {
   HoverPreviewValue,
@@ -7,13 +8,23 @@ import type {
   PreviewValue,
 } from "./ImagePreviewer.types";
 
-const stringifyQuery = (query: Record<string, string | number>) =>
-  new URLSearchParams(
-    Object.entries(query).map(([key, value]) => [key, String(value)])
-  ).toString();
-
 const DIRECT_IMAGE_URL_REGEX =
   /^https?:\/\/.+\.(?:avif|bmp|gif|jpe?g|png|webp)(?:[?#].*)?$/i;
+const IMAGE_LOAD_TIMEOUT_MS = 10000;
+let pendingPreviewRequests = 0;
+
+const withPreviewSlot = <TValue extends PreviewValue>(
+  request: PreviewRequest<TValue>
+): PreviewRequest<TValue> => {
+  if (pendingPreviewRequests >= RESOURCE_LIMITS.maxPreviewRequests) {
+    return Promise.reject(new Error("Too many image previews"));
+  }
+
+  pendingPreviewRequests += 1;
+  return request.finally(() => {
+    pendingPreviewRequests -= 1;
+  });
+};
 
 const resolveImgurImageUrl = (photoId: string, extension = "jpg") => ({
   src: `https://i.imgur.com/${photoId}.${extension}`,
@@ -33,42 +44,6 @@ const imageUrlResolvers: PreviewResolver[] = [
 const registerImageUrlResolver = (resolver: PreviewResolver) => {
   imageUrlResolvers.unshift(resolver);
 };
-
-registerImageUrlResolver({
-  regex: /flic\.kr\/p\/(\w+)|flickr\.com\/photos\/[\w@]+\/(\d+)/,
-  test(src) {
-    return this.regex.test(src);
-  },
-  request(src) {
-    const match = this.regex.exec(src);
-    const flickrBase58Id = match?.[1];
-    const flickrPhotoId = match?.[2];
-    const photoId = flickrBase58Id ? decode(flickrBase58Id) : flickrPhotoId;
-
-    const apiURL = `https://api.flickr.com/services/rest/?${stringifyQuery({
-      method: "flickr.photos.getInfo",
-      api_key: "c8c95356e465b8d7398ff2847152740e",
-      photo_id: photoId || "",
-      format: "json",
-      nojsoncallback: 1,
-    })}`;
-
-    return fetch(apiURL, {
-      mode: "cors",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.photo) {
-          throw new Error("Not found");
-        }
-
-        const { farm, server: serverId, id, secret } = data.photo;
-        return {
-          src: `https://farm${farm}.staticflickr.com/${serverId}/${id}_${secret}.jpg`,
-        };
-      });
-  },
-} as PreviewResolver & { regex: RegExp });
 
 registerImageUrlResolver({
   test(src) {
@@ -109,46 +84,83 @@ registerImageUrlResolver({
   },
 } as PreviewResolver & { regex: RegExp });
 
-export const of = (src: string): PreviewRequest<PreviewValue> =>
-  Promise.resolve({ src });
+export const of = (src: string): PreviewRequest<PreviewValue> => {
+  const safeSrc = getSafeImageUrl(src);
+
+  return safeSrc
+    ? Promise.resolve({ src: safeSrc })
+    : Promise.reject(new Error("Unsafe image URL"));
+};
 
 export const resolveSrcToImageUrl = ({
   src,
 }: {
   src: string;
 }): PreviewRequest<PreviewValue> => {
-  const resolver = imageUrlResolvers.find((entry) => entry.test(src));
+  const safeSrc = getSafeImageUrl(src);
+  if (!safeSrc) {
+    return Promise.reject(new Error("Unsafe image URL"));
+  }
+
+  const resolver = imageUrlResolvers.find((entry) => entry.test(safeSrc));
 
   return resolver
-    ? resolver.request(src)
+    ? resolver.request(safeSrc).then((value) => {
+        const safeResolvedSrc = getSafeImageUrl(value.src);
+        if (!safeResolvedSrc) {
+          throw new Error("Unsafe resolved image URL");
+        }
+
+        return {
+          ...value,
+          src: safeResolvedSrc,
+        };
+      })
     : Promise.reject(new Error("Unimplemented"));
 };
 
 export const createInlineImagePreviewRequest = (
   src: string
-): PreviewRequest<PreviewValue> => of(src).then(resolveSrcToImageUrl);
+): PreviewRequest<PreviewValue> =>
+  withPreviewSlot(of(src).then(resolveSrcToImageUrl));
 
 export const resolveWithImageDOM = ({
   src,
 }: PreviewValue): PreviewRequest<HoverPreviewValue> =>
   new Promise((resolve, reject) => {
+    const safeSrc = getSafeImageUrl(src);
+    if (!safeSrc) {
+      reject(new Error("Unsafe image URL"));
+      return;
+    }
+
     const img = new Image();
+    const timeoutId = setTimeout(() => {
+      img.onload = null;
+      img.onerror = null;
+      reject(new Error("Image load timed out"));
+    }, IMAGE_LOAD_TIMEOUT_MS);
 
     img.onload = () => {
+      clearTimeout(timeoutId);
       const width = img.naturalWidth || img.width;
       const height = img.naturalHeight || img.height;
 
       resolve({
-        src,
+        src: safeSrc,
         width,
         height,
       });
     };
-    img.onerror = reject;
-    img.src = src;
+    img.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error("Image failed to load"));
+    };
+    img.referrerPolicy = "no-referrer";
+    img.src = safeSrc;
   });
 
 export const createHoverImagePreviewRequest = (
   src: string
 ): PreviewRequest<HoverPreviewValue> =>
-  createInlineImagePreviewRequest(src).then(resolveWithImageDOM);
+  withPreviewSlot(of(src).then(resolveSrcToImageUrl).then(resolveWithImageDOM));

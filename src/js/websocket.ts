@@ -1,5 +1,6 @@
 import { Event } from './event';
 import type { ConnectionDataDetail, TerminalSocket } from '../types/connection';
+import { RESOURCE_LIMITS } from './resource_limits';
 
 export interface Websocket extends TerminalSocket {
   _conn: WebSocket;
@@ -27,9 +28,23 @@ Websocket.prototype._onOpen = function(_e: unknown) {
 
 Websocket.prototype._onMessage = function(e: MessageEvent<ArrayBuffer>) {
   const data = new Uint8Array(e.data);
+  if (data.byteLength > RESOURCE_LIMITS.maxConnectionMessageBytes) {
+    this.dispatchEvent(new CustomEvent('error'));
+    this._conn.close(1009, 'Message too large');
+    return;
+  }
+
+  const chunks = [];
+  const chunkSize = 8192;
+  for (let offset = 0; offset < data.length; offset += chunkSize) {
+    chunks.push(
+      String.fromCodePoint(...data.subarray(offset, offset + chunkSize))
+    );
+  }
+
   this.dispatchEvent(new CustomEvent('data', {
     detail: {
-      data: String.fromCodePoint(...Array.from(data))
+      data: chunks.join('')
     } satisfies ConnectionDataDetail
   }));
 };

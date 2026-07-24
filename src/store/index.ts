@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
+import type {
+  ConnectionLifecycle,
+  ConnectionStatusCode
+} from '../types/connection';
 
 export type PreferenceValues = {
   enablePicPreview: boolean;
@@ -40,7 +44,13 @@ type PreferencesState = {
 
 type PreferencesPersistedState = Pick<PreferencesState, 'values'>;
 
+export type PersistedPreferences = {
+  version: 1;
+  preferences: PreferenceValues;
+};
+
 const PREF_STORAGE_KEY = 'pttchrome.pref.v1';
+export const PREFERENCE_STORAGE_VERSION = 1;
 
 export const DEFAULT_PREFS: PreferenceValues = {
   enablePicPreview: true,
@@ -73,20 +83,156 @@ const createDefaultPreferenceValues = (): PreferenceValues => ({
   }
 });
 
-const normalizePreferenceValues = (
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readBoolean = (value: unknown, fallback: boolean) =>
+  typeof value === 'boolean' ? value : fallback;
+
+const readNumber = (
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+  integer = false
+) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  if (value < min || value > max || (integer && !Number.isInteger(value))) {
+    return fallback;
+  }
+
+  return value;
+};
+
+const readString = (value: unknown, fallback: string, maxLength: number) =>
+  typeof value === 'string' && value.length <= maxLength ? value : fallback;
+
+export const normalizePreferenceValues = (
   values?: StoredPreferenceValues | PreferenceValues | null
 ): PreferenceValues => {
-  const nextValues = values ?? undefined;
-  const nextTermSize = nextValues?.termSize;
+  const nextValues = isRecord(values) ? values : {};
+  const nextTermSize = isRecord(nextValues.termSize)
+    ? nextValues.termSize
+    : {};
 
   return {
-    ...createDefaultPreferenceValues(),
-    ...nextValues,
+    enablePicPreview: readBoolean(
+      nextValues.enablePicPreview,
+      DEFAULT_PREFS.enablePicPreview
+    ),
+    enableNotifications: readBoolean(
+      nextValues.enableNotifications,
+      DEFAULT_PREFS.enableNotifications
+    ),
+    enableEasyReading: readBoolean(
+      nextValues.enableEasyReading,
+      DEFAULT_PREFS.enableEasyReading
+    ),
+    endTurnsOnLiveUpdate: readBoolean(
+      nextValues.endTurnsOnLiveUpdate,
+      DEFAULT_PREFS.endTurnsOnLiveUpdate
+    ),
+    copyOnSelect: readBoolean(nextValues.copyOnSelect, DEFAULT_PREFS.copyOnSelect),
+    antiIdleTime: readNumber(
+      nextValues.antiIdleTime,
+      DEFAULT_PREFS.antiIdleTime,
+      0,
+      86400
+    ),
+    lineWrap: readNumber(nextValues.lineWrap, DEFAULT_PREFS.lineWrap, 1, 10000),
+    useMouseBrowsing: readBoolean(
+      nextValues.useMouseBrowsing,
+      DEFAULT_PREFS.useMouseBrowsing
+    ),
+    mouseBrowsingHighlight: readBoolean(
+      nextValues.mouseBrowsingHighlight,
+      DEFAULT_PREFS.mouseBrowsingHighlight
+    ),
+    mouseBrowsingHighlightColor: readNumber(
+      nextValues.mouseBrowsingHighlightColor,
+      DEFAULT_PREFS.mouseBrowsingHighlightColor,
+      1,
+      15,
+      true
+    ),
+    mouseLeftFunction: readNumber(
+      nextValues.mouseLeftFunction,
+      DEFAULT_PREFS.mouseLeftFunction,
+      0,
+      100,
+      true
+    ),
+    mouseMiddleFunction: readNumber(
+      nextValues.mouseMiddleFunction,
+      DEFAULT_PREFS.mouseMiddleFunction,
+      0,
+      100,
+      true
+    ),
+    mouseWheelFunction1: readNumber(
+      nextValues.mouseWheelFunction1,
+      DEFAULT_PREFS.mouseWheelFunction1,
+      0,
+      100,
+      true
+    ),
+    mouseWheelFunction2: readNumber(
+      nextValues.mouseWheelFunction2,
+      DEFAULT_PREFS.mouseWheelFunction2,
+      0,
+      100,
+      true
+    ),
+    mouseWheelFunction3: readNumber(
+      nextValues.mouseWheelFunction3,
+      DEFAULT_PREFS.mouseWheelFunction3,
+      0,
+      100,
+      true
+    ),
+    fontFitWindowWidth: readBoolean(
+      nextValues.fontFitWindowWidth,
+      DEFAULT_PREFS.fontFitWindowWidth
+    ),
+    fontFace: readString(nextValues.fontFace, DEFAULT_PREFS.fontFace, 256),
+    fontSize: readNumber(nextValues.fontSize, DEFAULT_PREFS.fontSize, 1, 200),
     termSize: {
-      ...DEFAULT_PREFS.termSize,
-      ...nextTermSize
-    }
+      cols: readNumber(nextTermSize.cols, DEFAULT_PREFS.termSize.cols, 1, 1000, true),
+      rows: readNumber(nextTermSize.rows, DEFAULT_PREFS.termSize.rows, 1, 1000, true)
+    },
+    termSizeMode:
+      nextValues.termSizeMode === 'fixed-font-size' ||
+      nextValues.termSizeMode === 'fixed-term-size'
+        ? nextValues.termSizeMode
+        : DEFAULT_PREFS.termSizeMode,
+    bbsMargin: readNumber(nextValues.bbsMargin, DEFAULT_PREFS.bbsMargin, 0, 1000)
   };
+};
+
+export const parsePersistedPreferences = (
+  value: unknown
+): PreferenceValues | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (value.version === PREFERENCE_STORAGE_VERSION) {
+    return isRecord(value.preferences)
+      ? normalizePreferenceValues(value.preferences as StoredPreferenceValues)
+      : null;
+  }
+
+  if (
+    (value.version === undefined || value.version === 0) &&
+    isRecord(value.values)
+  ) {
+    return normalizePreferenceValues(value.values as StoredPreferenceValues);
+  }
+
+  return null;
 };
 
 const preferencesStorage: PersistStorage<PreferencesPersistedState> = {
@@ -98,11 +244,16 @@ const preferencesStorage: PersistStorage<PreferencesPersistedState> = {
       }
 
       const parsed = JSON.parse(rawValue);
+      const values = parsePersistedPreferences(parsed);
+      if (!values) {
+        return null;
+      }
+
       return {
         state: {
-          values: normalizePreferenceValues(parsed?.values)
+          values
         },
-        version: 0
+        version: PREFERENCE_STORAGE_VERSION
       };
     } catch (error) {
       console.warn('readPreferenceValues failed:', error);
@@ -115,7 +266,8 @@ const preferencesStorage: PersistStorage<PreferencesPersistedState> = {
       globalThis.localStorage.setItem(
         name,
         JSON.stringify({
-          values: normalizePreferenceValues(value.state.values)
+          version: PREFERENCE_STORAGE_VERSION,
+          preferences: normalizePreferenceValues(value.state.values)
         })
       );
     } catch (error) {
@@ -151,6 +303,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: PREF_STORAGE_KEY,
+      version: PREFERENCE_STORAGE_VERSION,
       storage: preferencesStorage,
       partialize: state => ({
         values: state.values
@@ -202,6 +355,8 @@ export type ConnectedUrl = {
   easyReadingSupported: boolean;
 };
 
+type ConnectedUrlUpdate = Partial<ConnectedUrl> | ConnectedUrl | null;
+
 export type RuntimeAlertKind =
   | 'connection'
   | 'developerMode'
@@ -209,14 +364,26 @@ export type RuntimeAlertKind =
   | null;
 
 type AppRuntimeState = {
+  lifecycle: ConnectionLifecycle;
   connectState: number;
+  sessionId: number;
   connectedUrl: ConnectedUrl;
   activeAlert: RuntimeAlertKind;
   setRuntimeState: (nextState: {
+    lifecycle?: ConnectionLifecycle;
     connectState?: number;
+    sessionId?: number;
     connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null;
     activeAlert?: RuntimeAlertKind;
   }) => void;
+  transitionConnection: (
+    lifecycle: ConnectionLifecycle,
+    nextState?: {
+      sessionId?: number;
+      connectedUrl?: ConnectedUrlUpdate;
+      activeAlert?: RuntimeAlertKind;
+    }
+  ) => void;
   setActiveAlert: (activeAlert: RuntimeAlertKind) => void;
 };
 
@@ -231,7 +398,7 @@ const createDefaultConnectedUrl = (): ConnectedUrl => ({
 });
 
 const normalizeConnectedUrl = (
-  connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null
+  connectedUrl?: ConnectedUrlUpdate
 ): ConnectedUrl => {
   const nextConnectedUrl = connectedUrl || undefined;
 
@@ -241,23 +408,82 @@ const normalizeConnectedUrl = (
   };
 };
 
+const CONNECT_STATE_BY_LIFECYCLE: Record<ConnectionLifecycle, ConnectionStatusCode> = {
+  idle: 2,
+  connecting: 0,
+  authenticating: 0,
+  connected: 1,
+  disconnecting: 0,
+  disconnected: 2,
+  failed: 2
+};
+
+const LIFECYCLE_BY_CONNECT_STATE: Record<
+  ConnectionStatusCode,
+  ConnectionLifecycle
+> = {
+  0: 'connecting',
+  1: 'connected',
+  2: 'disconnected'
+};
+
+type RuntimeStateUpdate = {
+  lifecycle?: ConnectionLifecycle;
+  connectState?: number;
+  sessionId?: number;
+  connectedUrl?: ConnectedUrlUpdate;
+  activeAlert?: RuntimeAlertKind;
+};
+
+const normalizeConnectState = (connectState: number): ConnectionStatusCode =>
+  connectState === 0 || connectState === 1 || connectState === 2
+    ? connectState
+    : 2;
+
+const applyRuntimeState = (
+  state: AppRuntimeState,
+  nextState: RuntimeStateUpdate
+) => {
+  const lifecycle =
+    nextState.lifecycle ||
+    (hasOwnProperty(nextState, 'connectState')
+      ? LIFECYCLE_BY_CONNECT_STATE[normalizeConnectState(nextState.connectState || 2)]
+      : state.lifecycle);
+  const nextSessionId = nextState.sessionId;
+
+  return {
+    lifecycle,
+    connectState: CONNECT_STATE_BY_LIFECYCLE[lifecycle],
+    sessionId:
+      typeof nextSessionId === 'number' && Number.isInteger(nextSessionId) && nextSessionId >= 0
+        ? nextSessionId
+        : state.sessionId,
+    connectedUrl: hasOwnProperty(nextState, 'connectedUrl')
+      ? normalizeConnectedUrl(nextState.connectedUrl)
+      : state.connectedUrl,
+    activeAlert: hasOwnProperty(nextState, 'activeAlert')
+      ? nextState.activeAlert
+      : state.activeAlert
+  };
+};
+
 export const useAppRuntimeStore = create<AppRuntimeState>()(set => ({
+  lifecycle: 'disconnected',
   connectState: 2,
+  sessionId: 0,
   connectedUrl: createDefaultConnectedUrl(),
   activeAlert: null,
 
   setRuntimeState: nextState =>
-    set(state => ({
-      connectState: hasOwnProperty(nextState, 'connectState')
-        ? nextState.connectState
-        : state.connectState,
-      connectedUrl: hasOwnProperty(nextState, 'connectedUrl')
-        ? normalizeConnectedUrl(nextState.connectedUrl)
-        : state.connectedUrl,
-      activeAlert: hasOwnProperty(nextState, 'activeAlert')
-        ? nextState.activeAlert
-        : state.activeAlert
-    })),
+    set(state => applyRuntimeState(state, nextState)),
+
+  transitionConnection: (lifecycle, nextState) =>
+    set(state =>
+      applyRuntimeState(state, {
+        ...nextState,
+        lifecycle
+      })
+    ),
 
   setActiveAlert: activeAlert =>
     set(() => ({
@@ -266,11 +492,13 @@ export const useAppRuntimeStore = create<AppRuntimeState>()(set => ({
 }));
 
 export const readConnectionState = () => {
-  const { connectState, connectedUrl, activeAlert } =
+  const { lifecycle, connectState, sessionId, connectedUrl, activeAlert } =
     useAppRuntimeStore.getState();
 
   return {
+    lifecycle,
     connectState,
+    sessionId,
     connectedUrl: normalizeConnectedUrl(connectedUrl),
     activeAlert
   };
@@ -280,7 +508,9 @@ export const readConnectedUrl = (): ConnectedUrl =>
   normalizeConnectedUrl(useAppRuntimeStore.getState().connectedUrl);
 
 export const writeConnectionState = (nextState: {
+  lifecycle?: ConnectionLifecycle;
   connectState?: number;
+  sessionId?: number;
   connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null;
   activeAlert?: RuntimeAlertKind;
 }) => {
@@ -289,7 +519,19 @@ export const writeConnectionState = (nextState: {
 };
 
 export const isAppConnected = (): boolean =>
-  useAppRuntimeStore.getState().connectState === 1;
+  useAppRuntimeStore.getState().lifecycle === 'connected';
+
+export const transitionConnection = (
+  lifecycle: ConnectionLifecycle,
+  nextState?: {
+    sessionId?: number;
+    connectedUrl?: Partial<ConnectedUrl> | ConnectedUrl | null;
+    activeAlert?: RuntimeAlertKind;
+  }
+) => {
+  useAppRuntimeStore.getState().transitionConnection(lifecycle, nextState);
+  return readConnectionState();
+};
 
 export const writeRuntimeAlert = (
   activeAlert: RuntimeAlertKind

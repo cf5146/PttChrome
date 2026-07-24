@@ -3,6 +3,15 @@
 import { Event } from './event';
 import { ColorState } from './term_ui';
 import { u2b, b2u, parseStatusRow, parseListRow } from './string_util';
+import { RESOURCE_LIMITS } from './resource_limits';
+
+const normalizeTermDimension = (value, fallback, maximum) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+  return Math.min(maximum, Math.max(1, Math.floor(numericValue)));
+};
 
 const termColors = [
   // dark
@@ -215,6 +224,8 @@ TermChar.prototype = {
 TermChar.newChar = new TermChar(' ')
 
 export function TermBuf(cols, rows) {
+  cols = normalizeTermDimension(cols, 80, RESOURCE_LIMITS.maxTermCols);
+  rows = normalizeTermDimension(rows, 24, RESOURCE_LIMITS.maxTermRows);
   this.cols = cols;
   this.rows = rows;
   this.view = null;
@@ -273,6 +284,8 @@ export function TermBuf(cols, rows) {
 TermBuf.prototype = {
 
   resize: function(cols, rows) {
+    cols = normalizeTermDimension(cols, this.cols, RESOURCE_LIMITS.maxTermCols);
+    rows = normalizeTermDimension(rows, this.rows, RESOURCE_LIMITS.maxTermRows);
     this.cols = cols;
     this.rows = rows;
     this.lineChangeds.length = rows;

@@ -76,6 +76,23 @@ describe("HyperLink", () => {
     expect(fallback?.textContent).toBe("Unsafe");
   });
 
+  it.each([
+    "data:text/html,<script>alert(1)</script>",
+    "file:///etc/passwd",
+    "//evil.example/image.png",
+    "https://safe.example@evil.example/image.jpg",
+    "https://example.com/image.jpg%00.html"
+  ])("rejects unsafe URL input: %s", async href => {
+    await act(async () => {
+      root.render(
+        <HyperLink col={7} row={8} href={href} inner="Unsafe" />
+      );
+    });
+
+    expect(container.querySelector("a.y")).toBeNull();
+    expect(container.querySelector("span.y")?.textContent).toBe("Unsafe");
+  });
+
   it("does not treat movement between link children as leaving the link", async () => {
     let leaveCount = 0;
 

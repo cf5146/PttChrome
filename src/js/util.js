@@ -1,3 +1,5 @@
+import { RESOURCE_LIMITS } from './resource_limits';
+
 export function setTimer(repeat, func, timelimit) {
   if(repeat) {
 	  return {
@@ -29,27 +31,62 @@ export function getQueryVariable(variable) {
 }
 
 const SAFE_EXTERNAL_PROTOCOLS = ['http:', 'https:', 'ftp:', 'telnet:'];
+const SAFE_IMAGE_PROTOCOLS = ['https:'];
 
-export function getSafeExternalUrl(url, allowedProtocols) {
+/**
+ * @typedef {{valid: true, url: string, protocol: string} | {valid: false, reason: string}} ExternalUrlResult
+ */
+
+export function validateExternalUrl(url, allowedProtocols) {
 	if (typeof url !== 'string') {
-		return null;
+		return { valid: false, reason: 'not-a-string' };
 	}
 
 	const trimmedUrl = url.trim();
-	if (!trimmedUrl || !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUrl)) {
-		return null;
+	if (!trimmedUrl) {
+		return { valid: false, reason: 'empty' };
+	}
+
+	if (trimmedUrl.length > RESOURCE_LIMITS.maxExternalUrlLength) {
+		return { valid: false, reason: 'too-long' };
+	}
+
+	if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUrl)) {
+		return { valid: false, reason: 'missing-scheme' };
+	}
+
+	if (/[\u0000-\u001f\u007f]/.test(trimmedUrl) || /%00/i.test(trimmedUrl)) {
+		return { valid: false, reason: 'control-character' };
 	}
 
 	if (!URL.canParse(trimmedUrl)) {
-		return null;
+		return { valid: false, reason: 'malformed' };
 	}
 
 	const parsed = new URL(trimmedUrl);
 	const protocols = allowedProtocols || SAFE_EXTERNAL_PROTOCOLS;
 	if (protocols.indexOf(parsed.protocol) < 0) {
-		return null;
+		return { valid: false, reason: 'unsupported-protocol' };
 	}
-	return parsed.toString();
+
+	if (!parsed.hostname || parsed.username || parsed.password) {
+		return { valid: false, reason: 'unsafe-authority' };
+	}
+
+	return {
+		valid: true,
+		url: parsed.toString(),
+		protocol: parsed.protocol
+	};
+}
+
+export function getSafeExternalUrl(url, allowedProtocols) {
+	const result = validateExternalUrl(url, allowedProtocols);
+	return result.valid ? result.url : null;
+}
+
+export function getSafeImageUrl(url) {
+	return getSafeExternalUrl(url, SAFE_IMAGE_PROTOCOLS);
 }
 
 export function openExternalUrl(url, allowedProtocols) {

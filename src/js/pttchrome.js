@@ -4,6 +4,8 @@ import { TermView } from './term_view';
 import { TermBuf } from './term_buf';
 import { TelnetConnection } from './telnet';
 import { Websocket } from './websocket';
+import { parseConnectionUrl } from './connection_url';
+import { RECONNECT_DELAYS_MS, RESOURCE_LIMITS } from './resource_limits';
 import { EasyReading } from './easy_reading';
 import { TouchController } from './touch_controller';
 import {
@@ -14,6 +16,7 @@ import {
   readLiveHelperState,
   readValuesWithDefault,
   subscribePreferenceValues,
+  transitionConnection,
   writeConnectionState,
   writeRuntimeAlert,
   writeLiveHelperState,
@@ -185,6 +188,11 @@ export const App = function() {
   this.dblclickTimer=null;
   this.mbTimer=null;
   this.timerEverySec=null;
+  this.reconnectTimer=null;
+  this.reconnectAttempt=0;
+  this.sessionId=0;
+  this.intentionalDisconnect=false;
+  this._connectionHandlers=null;
   this.pushthreadAutoUpdateCount = 0;
   this.maxPushthreadAutoUpdateCount = -1;
   this.onWindowResize();
@@ -212,100 +220,166 @@ App.prototype.reconnect = function() {
   this.connect(url);
 };
 
-App.prototype.connect = function(url) {
-  console.log('connect: ' + url);
+App.prototype._isCurrentConnection = function(sessionId, conn) {
+  return sessionId === this.sessionId && conn === this.conn;
+};
 
-  const parsed = this._parseURLSimple(url);
-  if (!parsed) {
-    console.log('unable to parse connect url: ' + url);
+App.prototype._cancelReconnect = function() {
+  if (this.reconnectTimer) {
+    this.reconnectTimer.cancel();
+    this.reconnectTimer = null;
+  }
+};
+
+App.prototype._stopConnectionTimers = function() {
+  if (this.timerEverySec) {
+    this.timerEverySec.cancel();
+    this.timerEverySec = null;
+  }
+  this.cancelMbTimer();
+};
+
+App.prototype._detachConn = function(conn) {
+  const registration = this._connectionHandlers;
+  if (!registration || registration.conn !== conn) {
     return;
   }
 
+  for (const name in registration.handlers) {
+    conn.removeEventListener(name, registration.handlers[name]);
+  }
+  this._connectionHandlers = null;
+};
+
+App.prototype._closeConn = function(conn) {
+  if (!conn) {
+    return;
+  }
+
+  conn.isConnected = false;
+  if (conn.close) {
+    conn.close();
+  } else {
+    conn.socket?.close?.();
+  }
+};
+
+App.prototype.connect = function(url, options) {
+  const preserveReconnect = options?.preserveReconnect === true;
+  if (!preserveReconnect) {
+    this._cancelReconnect();
+    this.reconnectAttempt = 0;
+  }
+  this.intentionalDisconnect = false;
+
+  const parsed = this._parseURLSimple(url);
+  if (!parsed) {
+    console.log('unable to parse connect url');
+    return;
+  }
+
+  console.log('connect: ' + parsed.url);
+
+  const previousConn = this.conn;
+  const sessionId = ++this.sessionId;
+  if (previousConn) {
+    this._detachConn(previousConn);
+    this._closeConn(previousConn);
+  }
+  if (this.parser.reset) {
+    this.parser.reset();
+  }
+
   const connectedUrl = {
-    url: url,
+    url: parsed.url,
     site: parsed.hostname,
     port: parsed.port,
     easyReadingSupported: true
   };
-  let socketUrl = '';
 
-  if (parsed.protocol == 'wsstelnet') {
-    socketUrl = 'wss://' + parsed.hostname + parsed.path;
-  } else if (parsed.protocol == 'wstelnet') {
-    socketUrl = 'ws://' + parsed.hostname + parsed.path;
-  } else {
-    console.log('unsupport connect url protocol: ' + parsed.protocol);
-    return;
-  }
-
-  writeConnectionState({
-    connectState: 0,
+  transitionConnection('connecting', {
+    sessionId,
     connectedUrl
   });
-  this._setupWebsocketConn(socketUrl);
+  this._setupWebsocketConn(parsed.socketUrl, sessionId);
 
   this.onValuesPrefChange(readValuesWithDefault());
 };
 
 App.prototype._parseURLSimple = function(url) {
-  const protocol = url.split(/:\/\//, 2);
-  if (protocol.length != 2)
-    return null;
-  const hostname = protocol[1].split(/\//, 2);
-  const hostport = hostname[0].split(/:/);
-  if (hostport > 2)
-    return null;
-  const port = hostport.length > 1 ? Number.parseInt(hostport[1], 10) : {
-    'wstelnet': 80,
-    'wsstelnet': 443,
-    'telnet': 23,
-    'ssh': 22
-  }[protocol[0]];
-  return {
-    protocol: protocol[0],
-    hostname: hostname[0],
-    host: hostport[0],
-    port: port,
-    path: '/' + (hostname.length > 1 ? hostname[1] : '')
-  };
+  return parseConnectionUrl(url);
 };
 
-App.prototype._setupWebsocketConn = function(url) {
+App.prototype._setupWebsocketConn = function(url, sessionId) {
   const wsConn = new Websocket(url);
-  this._attachConn(new TelnetConnection(wsConn));
+  this._attachConn(new TelnetConnection(wsConn), sessionId);
 };
 
-App.prototype._attachConn = function(conn) {
+App.prototype._attachConn = function(conn, sessionId) {
   this.conn = conn;
-  this.conn.addEventListener('open', this.onConnect.bind(this));
-  this.conn.addEventListener('close', this.onClose.bind(this));
-  this.conn.addEventListener('data', (e) => {
-    this.onData(e.detail.data);
-  });
-  this.conn.addEventListener('doNaws', () => {
-    conn.sendWillNaws();
-    conn.sendNaws(this.buf.cols, this.buf.rows);
-  });
+  const handlers = {
+    open: () => this.onConnect(sessionId, conn),
+    error: () => this.onError(sessionId, conn),
+    close: () => this.onClose(sessionId, conn),
+    data: (e) => this.onData(e.detail.data, sessionId, conn),
+    doNaws: () => {
+      if (!this._isCurrentConnection(sessionId, conn)) {
+        return;
+      }
+      conn.sendWillNaws();
+      conn.sendNaws(this.buf.cols, this.buf.rows);
+    }
+  };
+
+  this._connectionHandlers = { conn, handlers };
+  for (const name in handlers) {
+    conn.addEventListener(name, handlers[name]);
+  }
 };
 
-App.prototype.onConnect = function() {
-  this.conn.isConnected = true;
-  this.view.setConn(this.conn);
+App.prototype.onConnect = function(sessionId, conn) {
+  if (!this._isCurrentConnection(sessionId, conn)) {
+    return;
+  }
+
+  conn.isConnected = true;
+  this.view.setConn(conn);
   console.info("pttchrome onConnect");
-  writeConnectionState({ connectState: 1 });
+  this.reconnectAttempt = 0;
+  transitionConnection('connected', { sessionId });
   if (readConnectionState().activeAlert === 'connection') {
     writeRuntimeAlert(null);
   }
   this.updateTabIcon('connect');
   this.idleTime = 0;
-  this.timerEverySec = setTimer(true, () => {
+  const timer = setTimer(true, () => {
+    if (!this._isCurrentConnection(sessionId, conn)) {
+      timer.cancel();
+      return;
+    }
     this.antiIdle();
     this.view.onBlink();
     this.incrementCountToUpdatePushthread();
   }, 1000);
+  this.timerEverySec = timer;
 };
 
-App.prototype.onData = function(data) {
+App.prototype.onError = function(sessionId, conn) {
+  if (!this._isCurrentConnection(sessionId, conn)) {
+    return;
+  }
+
+  transitionConnection('failed', {
+    sessionId,
+    activeAlert: 'connection'
+  });
+};
+
+App.prototype.onData = function(data, sessionId, conn) {
+  if (!this._isCurrentConnection(sessionId, conn)) {
+    return;
+  }
+
   this.parser.feed(data);
 
   if (!this.appFocused && this.view.enableNotifications) {
@@ -323,26 +397,93 @@ App.prototype.onData = function(data) {
   }
 };
 
-App.prototype.onClose = function() {
-  console.info("pttchrome onClose");
-  if (this.timerEverySec) {
-    this.timerEverySec.cancel();
+App.prototype._scheduleReconnect = function(sessionId) {
+  if (
+    this.intentionalDisconnect ||
+    sessionId !== this.sessionId ||
+    this.reconnectTimer
+  ) {
+    return;
   }
-  this.conn.isConnected = false;
 
-  this.cancelMbTimer();
+  const delay = RECONNECT_DELAYS_MS[this.reconnectAttempt];
+  if (
+    delay === undefined ||
+    this.reconnectAttempt >= RESOURCE_LIMITS.maxReconnectAttempts
+  ) {
+    transitionConnection('failed', {
+      sessionId,
+      activeAlert: 'connection'
+    });
+    return;
+  }
+
+  this.reconnectAttempt += 1;
+  this.reconnectTimer = setTimer(false, () => {
+    this.reconnectTimer = null;
+    if (this.intentionalDisconnect || sessionId !== this.sessionId) {
+      return;
+    }
+
+    const { url } = readConnectedUrl();
+    if (url) {
+      this.connect(url, { preserveReconnect: true });
+    }
+  }, delay);
+};
+
+App.prototype.onClose = function(sessionId, conn) {
+  if (!this._isCurrentConnection(sessionId, conn)) {
+    return;
+  }
+
+  console.info("pttchrome onClose");
+  this._detachConn(conn);
+  this._stopConnectionTimers();
+  conn.isConnected = false;
 
   writeRuntimeModalOpen(false);
-  writeConnectionState({
-    connectState: 2,
+  transitionConnection('disconnected', {
+    sessionId,
     activeAlert: 'connection'
+  });
+  this.idleTime = 0;
+  this.updateTabIcon('disconnect');
+  this._scheduleReconnect(sessionId);
+};
+
+App.prototype.disconnect = function() {
+  this.intentionalDisconnect = true;
+  this._cancelReconnect();
+  this.reconnectAttempt = 0;
+  const conn = this.conn;
+  const sessionId = ++this.sessionId;
+  if (conn) {
+    this._detachConn(conn);
+    this._closeConn(conn);
+  }
+  this.conn = null;
+  this._stopConnectionTimers();
+  writeRuntimeModalOpen(false);
+  transitionConnection('disconnected', {
+    sessionId,
+    activeAlert: null
   });
   this.idleTime = 0;
   this.updateTabIcon('disconnect');
 };
 
+App.prototype.destroy = function() {
+  this.disconnect();
+  this.cancelDblclickTimer();
+  if (this._unsubscribePreferenceValues) {
+    this._unsubscribePreferenceValues();
+    this._unsubscribePreferenceValues = null;
+  }
+};
+
 App.prototype.sendData = function(str) {
-  if (this.connectState == 1)
+  if (this.isConnected() && this.conn.convSend)
     this.conn.convSend(str);
 };
 

@@ -1,6 +1,7 @@
 {
   "name": "pttchrome",
   "version": "1.2.0",
+  "license": "GPL-3.0-only",
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "base58": "^2.0.1",
@@ -40,6 +41,8 @@
     "preview": "vite preview",
     "prepare": "husky",
     "start": "vite",
+    "lint": "node scripts/check-source-safety.mjs",
+    "security:scan": "node scripts/check-source-safety.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -1,8 +1,23 @@
+import { Agent } from 'node:https';
+import * as tls from 'node:tls';
 import { defineConfig, transformWithEsbuild } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(() => {
+  const buildSha = process.env.GITHUB_SHA || 'local';
+  const buildDate = process.env.BUILD_DATE || new Date().toISOString();
+  const developmentProxyAgent = new Agent({
+    ca: [
+      ...tls.rootCertificates,
+      ...(tls.getCACertificates?.('system') || [])
+    ]
+  });
+
   return {
+    define: {
+      __PTTCHROME_BUILD_SHA__: JSON.stringify(buildSha),
+      __PTTCHROME_BUILD_DATE__: JSON.stringify(buildDate),
+    },
     plugins: [
       {
         name: 'pttchrome-jsx-in-js',
@@ -46,6 +61,7 @@ export default defineConfig(() => {
       strictPort: true,
       proxy: {
         '/bbs': {
+          agent: developmentProxyAgent,
           target: 'https://ptt-proxy.cf5146.workers.dev',
           secure: true,
           ws: true,

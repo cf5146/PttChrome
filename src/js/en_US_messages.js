@@ -7,6 +7,9 @@ export const en_US = {
     "message": "A GNU/GPL telnet client extension specifically designed for BBS browsing.",
     "description":"The description of the application, displayed in the web store."
   },
+  "alert_buildInfo": {
+    "message": "Build"
+  },
 
   // side menus
   "menu_coloredCopy": {

@@ -2,12 +2,16 @@ import React from "react";
 import PropTypes from "prop-types";
 import { Alert, Button } from "./bootstrap-compat";
 import { i18n } from "../js/i18n";
+import { BUILD_INFO } from "../js/build_info";
 import "./PageTopAlert.css";
 
 export const DeveloperModeAlert = ({ onDismiss }) => (
   <Alert bsStyle="danger" className="PageTopAlert" onDismiss={onDismiss}>
     <h4>{i18n("alert_developerModeHeader")}</h4>
     <p>{i18n("alert_developerModeText")}</p>
+    <p>
+      {i18n("alert_buildInfo")} {BUILD_INFO.sha} ({BUILD_INFO.date})
+    </p>
     <p>
       <Button bsStyle="danger" onClick={onDismiss}>
         {i18n("alert_developerModeDismiss")}

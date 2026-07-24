@@ -8,6 +8,9 @@ declare namespace PttChrome {
 }
 
 declare global {
+  const __PTTCHROME_BUILD_SHA__: string;
+  const __PTTCHROME_BUILD_DATE__: string;
+
   interface ImportMetaEnv {
     readonly PTTCHROME_PAGE_TITLE?: string;
     readonly ALLOW_SITE_IN_QUERY?: string;

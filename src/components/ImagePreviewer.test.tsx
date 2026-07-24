@@ -96,6 +96,20 @@ describe('ImagePreviewer helpers', () => {
     );
   });
 
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'file:///etc/passwd',
+    '//evil.example/image.png',
+    'https://safe.example@evil.example/image.jpg',
+    'https://example.com/image.jpg%00.html',
+    'http://example.com/image.jpg'
+  ])('rejects unsafe preview URL input: %s', async url => {
+    await expect(createInlineImagePreviewRequest(url)).rejects.toThrow(
+      'Unsafe image URL'
+    );
+  });
+
   it('matches direct image URLs with query strings', async () => {
     await expect(
       createInlineImagePreviewRequest(
@@ -150,6 +164,46 @@ describe('ImagePreviewer helpers', () => {
     });
   });
 
+  it('rejects preview requests above the concurrent limit', async () => {
+    const images = [];
+    class DeferredImage {
+      naturalWidth = 640;
+
+      naturalHeight = 480;
+
+      width = 640;
+
+      height = 480;
+
+      onload = null;
+
+      onerror = null;
+
+      constructor() {
+        images.push(this);
+      }
+
+      set src(_value) {}
+    }
+
+    vi.stubGlobal('Image', DeferredImage);
+    const requests = Array.from({ length: 9 }, (_, index) =>
+      createHoverImagePreviewRequest(
+        `https://example.com/image-${index}.jpg`
+      )
+    );
+
+    await Promise.resolve();
+    expect(requests).toHaveLength(9);
+    await expect(requests[8]).rejects.toThrow('Too many image previews');
+
+    for (const image of images) {
+      image.onload?.();
+    }
+
+    await expect(Promise.all(requests.slice(0, 8))).resolves.toHaveLength(8);
+  });
+
   it('rejects URLs without a matching resolver', async () => {
     await expect(
       resolveSrcToImageUrl({ src: 'https://example.com/not-supported' })
@@ -166,6 +220,9 @@ describe('ImagePreviewer helpers', () => {
     });
 
     expect(container.querySelector('img')?.getAttribute('src')).toBe(DUMMY_IMAGE_URL);
+    expect(container.querySelector('img')?.getAttribute('referrerpolicy')).toBe(
+      'no-referrer'
+    );
   });
 
   it('renders a loading spinner while inline previews are pending', async () => {
@@ -204,6 +261,7 @@ describe('ImagePreviewer helpers', () => {
 
     expect(container.querySelector('img')).toBeNull();
     expect(image?.getAttribute('src')).toBe('https://i.imgur.com/hover-id.jpg');
+    expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(image?.style.left).toBe('30px');
     expect(image?.style.top).toBe('20px');
     expect(image?.style.padding).toBe('0px');

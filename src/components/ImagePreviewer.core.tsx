@@ -170,6 +170,7 @@ export const HoverImagePreviewContent = ({
     return renderInBody(
       <img
         alt=""
+        referrerPolicy="no-referrer"
         src={value.src}
         style={{
           display: "block",
@@ -210,7 +211,12 @@ export const InlineImagePreviewContent = ({
 
   if (value) {
     return (
-      <img alt="" className="easyReadingImg hyperLinkPreview" src={value.src} />
+      <img
+        alt=""
+        className="easyReadingImg hyperLinkPreview"
+        referrerPolicy="no-referrer"
+        src={value.src}
+      />
     );
   }
 
