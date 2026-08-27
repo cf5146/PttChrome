@@ -1,22 +1,64 @@
-import cx from "classnames";
-import PropTypes from "prop-types";
-import React from "react";
-import { openExternalUrl } from "../../js/util";
-import { useContextMenuStore } from "../../store";
-import DropdownMenu from "./DropdownMenu";
-import InputHelperModal from "./InputHelperModal";
-import LiveHelperModal from "./LiveHelperModal";
-import PrefModal from "./PrefModal";
+import cx from 'classnames';
+import React from 'react';
+import { openExternalUrl } from '../../js/util';
+import { useContextMenuStore, type ContextMenuStore } from '../../store';
+import DropdownMenu from './DropdownMenu';
+import InputHelperModal from './InputHelperModal';
+import LiveHelperModal from './LiveHelperModal';
+import PrefModal from './PrefModal';
 
-const EVENT_KEY_BY_HOT_KEY = {
-  ["C".codePointAt(0)]: "copy",
-  ["E".codePointAt(0)]: "copyLinkUrl",
-  ["P".codePointAt(0)]: "paste",
-  ["S".codePointAt(0)]: "searchGoogle",
-  ["T".codePointAt(0)]: "openUrlNewTab"
+export interface SelectionColRow {
+  start: { row: number; col: number };
+  end: { row: number; col: number };
+}
+
+export interface ContextMenuPttChromeTarget {
+  doCopy(text?: string): void;
+  doCopyAnsi(): void;
+  doPaste(): void;
+  doSearchGoogle(selectedText: string): void;
+  doOpenUrlNewTab(aElement: HTMLAnchorElement | null): void;
+  doSelectAll(): void;
+  switchMouseBrowsing(): void;
+  setInputAreaFocus(): void;
+  switchToEasyReadingMode(useEasyReadingMode?: boolean): void;
+  onDisableLiveHelperModalState(): void;
+  setAutoPushthreadUpdate(sec: number): void;
+  CmdHandler: HTMLElement;
+  lastSelection: SelectionColRow | null;
+  view: {
+    getSelectionColRow(): SelectionColRow;
+    useEasyReadingMode: boolean;
+    redraw(force?: boolean): void;
+  };
+  buf: {
+    useMouseBrowsing: boolean;
+    pageState: number;
+    cur_y: number;
+    getRowText(row: number, startCol: number, endCol: number): string;
+  };
+  conn: {
+    send(data: string): void;
+    convSend(data: string): void;
+  };
+}
+
+export interface ContextMenuProps {
+  pttchrome: ContextMenuPttChromeTarget;
+}
+
+const EVENT_KEY_BY_HOT_KEY: Record<string, string> = {
+  C: 'copy',
+  E: 'copyLinkUrl',
+  P: 'paste',
+  S: 'searchGoogle',
+  T: 'openUrlNewTab'
 };
 
-const menuHandlerByEventKey = {
+const menuHandlerByEventKey: Record<
+  string,
+  (pttchrome: ContextMenuPttChromeTarget, state: ContextMenuStore) => void
+> = {
   copy: (pttchrome, { selectedText }) => pttchrome.doCopy(selectedText),
   copyAnsi: pttchrome => pttchrome.doCopyAnsi(),
   paste: pttchrome => pttchrome.doPaste(),
@@ -29,24 +71,26 @@ const menuHandlerByEventKey = {
   mouseBrowsing: pttchrome => pttchrome.switchMouseBrowsing()
 };
 
-const onPrefSaveImpl = pttchrome => {
+const onPrefSaveImpl = (pttchrome: ContextMenuPttChromeTarget) => {
   pttchrome.setInputAreaFocus();
   pttchrome.switchToEasyReadingMode(pttchrome.view.useEasyReadingMode);
 };
 
-const getAnchorElement = eventTarget => {
+const getAnchorElement = (
+  eventTarget: EventTarget | null
+): HTMLAnchorElement | null => {
   if (!(eventTarget instanceof Element)) {
     return null;
   }
 
-  if (eventTarget.matches("a")) {
-    return eventTarget;
+  if (eventTarget.matches('a')) {
+    return eventTarget as HTMLAnchorElement;
   }
 
-  return eventTarget.closest("a");
+  return eventTarget.closest('a');
 };
 
-export const ContextMenu = ({ pttchrome }) => {
+export const ContextMenu: React.FC<ContextMenuProps> = ({ pttchrome }) => {
   const {
     open,
     pageX,
@@ -77,14 +121,14 @@ export const ContextMenu = ({ pttchrome }) => {
     }
 
     closeMenu();
-  }, [closeMenu, pttchrome]);
+  }, [closeMenu]);
 
   const onMenuSelect = React.useCallback(
-    (eventKey, event) => {
-      menuHandlerByEventKey[eventKey](
-        pttchrome,
-        useContextMenuStore.getState()
-      );
+    (eventKey: string, event: React.SyntheticEvent) => {
+      const handler = menuHandlerByEventKey[eventKey];
+      if (handler) {
+        handler(pttchrome, useContextMenuStore.getState());
+      }
       event.stopPropagation();
       closeMenu();
     },
@@ -92,16 +136,16 @@ export const ContextMenu = ({ pttchrome }) => {
   );
 
   const onContextMenu = React.useCallback(
-    event => {
+    (event: MouseEvent) => {
       event.stopPropagation();
       event.preventDefault();
 
       const { CmdHandler } = pttchrome;
       const doDOMMouseScroll =
-        CmdHandler.getAttribute("doDOMMouseScroll") === "1";
+        CmdHandler.getAttribute('doDOMMouseScroll') === '1';
 
       if (doDOMMouseScroll) {
-        CmdHandler.setAttribute("doDOMMouseScroll", "0");
+        CmdHandler.setAttribute('doDOMMouseScroll', '0');
         return;
       }
 
@@ -113,10 +157,10 @@ export const ContextMenu = ({ pttchrome }) => {
       }
 
       const anchorElement = getAnchorElement(event.target);
-      const contextOnUrl = anchorElement?.getAttribute("href") || "";
+      const contextOnUrl = anchorElement?.getAttribute('href') || '';
       const nextSelectedText = selection
-        ? selection.toString().replaceAll("\u00a0", " ")
-        : "";
+        ? selection.toString().replace(/\u00a0/g, ' ')
+        : '';
       const nextUrlEnabled = !!contextOnUrl;
       const nextNormalEnabled =
         !nextUrlEnabled && (!!selection?.isCollapsed || !selection);
@@ -136,23 +180,23 @@ export const ContextMenu = ({ pttchrome }) => {
   );
 
   const onInputHelperClick = React.useCallback(
-    event => {
+    (event: React.MouseEvent) => {
       event.stopPropagation();
       showInputHelper();
     },
-    [pttchrome, showInputHelper]
+    [showInputHelper]
   );
 
   const onLiveArticleHelperClick = React.useCallback(
-    event => {
+    (event: React.MouseEvent) => {
       event.stopPropagation();
       showLiveArticleHelper();
     },
-    [pttchrome, showLiveArticleHelper]
+    [showLiveArticleHelper]
   );
 
   const onSettingsClick = React.useCallback(
-    event => {
+    (event: React.MouseEvent) => {
       event.stopPropagation();
       pttchrome.onDisableLiveHelperModalState();
       showSettings();
@@ -161,62 +205,63 @@ export const ContextMenu = ({ pttchrome }) => {
   );
 
   const onQuickSearchSelect = React.useCallback(
-    (eventKey, event) => {
+    (eventKey: string, event: React.SyntheticEvent) => {
       const url = eventKey
-        .split("%s")
+        .split('%s')
         .join(encodeURIComponent(useContextMenuStore.getState().selectedText));
       openExternalUrl(url);
       event.stopPropagation();
       closeMenu();
     },
-    [closeMenu, pttchrome]
+    [closeMenu]
   );
 
   const onInputHelperReset = React.useCallback(() => {
-    pttchrome.conn.send("\x15[m");
+    pttchrome.conn.send('\x15[m');
   }, [pttchrome]);
 
   const onInputHelperCmdSend = React.useCallback(
-    cmd => {
+    (cmd: string) => {
       const selection = globalThis.getSelection();
 
+      let finalCmd = cmd;
       if (selection && !selection.isCollapsed && pttchrome.buf.pageState == 6) {
         const sel = pttchrome.view.getSelectionColRow();
         let row = pttchrome.buf.cur_y;
-        let selCmd = "";
+        let selCmd = '';
 
-        selCmd += "\x1b[H";
+        selCmd += '\x1b[H';
         if (row > sel.end.row) {
-          selCmd += "\x1b[A".repeat(row - sel.end.row);
+          selCmd += '\x1b[A'.repeat(row - sel.end.row);
         } else if (row < sel.end.row) {
-          selCmd += "\x1b[B".repeat(sel.end.row - row);
+          selCmd += '\x1b[B'.repeat(sel.end.row - row);
         }
 
         let repeats = pttchrome.buf.getRowText(sel.end.row, 0, sel.end.col)
           .length;
-        selCmd += "\x1b[C".repeat(repeats) + "\x15[m";
+        selCmd += '\x1b[C'.repeat(repeats) + '\x15[m';
 
         row = sel.end.row;
-        selCmd += "\x1b[H";
+        selCmd += '\x1b[H';
         if (row > sel.start.row) {
-          selCmd += "\x1b[A".repeat(row - sel.start.row);
+          selCmd += '\x1b[A'.repeat(row - sel.start.row);
         } else if (row < sel.start.row) {
-          selCmd += "\x1b[B".repeat(sel.start.row - row);
+          selCmd += '\x1b[B'.repeat(sel.start.row - row);
         }
 
         repeats = pttchrome.buf.getRowText(sel.start.row, 0, sel.start.col)
           .length;
-        selCmd += "\x1b[C".repeat(repeats);
-        cmd = selCmd + cmd;
+        selCmd += '\x1b[C'.repeat(repeats);
+        finalCmd = selCmd + cmd;
       }
 
-      pttchrome.conn.send(cmd);
+      pttchrome.conn.send(finalCmd);
     },
     [pttchrome]
   );
 
   const onInputHelperConvSend = React.useCallback(
-    value => {
+    (value: string) => {
       pttchrome.conn.convSend(value);
     },
     [pttchrome]
@@ -228,7 +273,7 @@ export const ContextMenu = ({ pttchrome }) => {
   }, [hideLiveArticleHelper, pttchrome]);
 
   const onLiveHelperChange = React.useCallback(
-    nextState => {
+    (nextState: { enabled: boolean; sec: number }) => {
       if (nextState.enabled) {
         pttchrome.view.useEasyReadingMode = false;
         pttchrome.switchToEasyReadingMode();
@@ -254,7 +299,7 @@ export const ContextMenu = ({ pttchrome }) => {
   }, [hideSettings, pttchrome]);
 
   React.useEffect(() => {
-    const bbsWindow = document.getElementById("BBSWindow");
+    const bbsWindow = document.getElementById('BBSWindow');
     if (!bbsWindow) {
       return undefined;
     }
@@ -263,16 +308,16 @@ export const ContextMenu = ({ pttchrome }) => {
       onHide();
     };
 
-    const touchStartHandler = event => {
+    const touchStartHandler = (event: TouchEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.getAttribute("role") === "menuitem") {
+      if (target?.getAttribute('role') === 'menuitem') {
         return;
       }
 
       onHide();
     };
 
-    const hotKeyUpHandler = event => {
+    const hotKeyUpHandler = (event: KeyboardEvent) => {
       if (!useContextMenuStore.getState().open) {
         return;
       }
@@ -283,22 +328,23 @@ export const ContextMenu = ({ pttchrome }) => {
         return;
       }
 
-      const eventKey = EVENT_KEY_BY_HOT_KEY[event.keyCode];
+      const key = event.key?.toUpperCase();
+      const eventKey = key ? EVENT_KEY_BY_HOT_KEY[key] : undefined;
       if (eventKey) {
-        onMenuSelect(eventKey, event);
+        onMenuSelect(eventKey, event as unknown as React.SyntheticEvent);
       }
     };
 
-    bbsWindow.addEventListener("contextmenu", onContextMenu, true);
-    globalThis.addEventListener("click", clickHandler, false);
-    globalThis.addEventListener("touchstart", touchStartHandler, false);
-    globalThis.addEventListener("keyup", hotKeyUpHandler, false);
+    bbsWindow.addEventListener('contextmenu', onContextMenu, true);
+    globalThis.addEventListener('click', clickHandler, false);
+    globalThis.addEventListener('touchstart', touchStartHandler, false);
+    globalThis.addEventListener('keyup', hotKeyUpHandler, false);
 
     return () => {
-      globalThis.removeEventListener("keyup", hotKeyUpHandler, false);
-      globalThis.removeEventListener("touchstart", touchStartHandler, false);
-      globalThis.removeEventListener("click", clickHandler, false);
-      bbsWindow.removeEventListener("contextmenu", onContextMenu, true);
+      globalThis.removeEventListener('keyup', hotKeyUpHandler, false);
+      globalThis.removeEventListener('touchstart', touchStartHandler, false);
+      globalThis.removeEventListener('click', clickHandler, false);
+      bbsWindow.removeEventListener('contextmenu', onContextMenu, true);
     };
   }, [onContextMenu, onHide, onMenuSelect]);
 
@@ -346,10 +392,6 @@ export const ContextMenu = ({ pttchrome }) => {
       />
     </React.Fragment>
   );
-};
-
-ContextMenu.propTypes = {
-  pttchrome: PropTypes.object.isRequired
 };
 
 export default ContextMenu;
