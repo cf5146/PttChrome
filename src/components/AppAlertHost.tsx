@@ -1,16 +1,24 @@
-import PropTypes from "prop-types";
-import React from "react";
-import { Modal } from "./bootstrap-compat";
+import React from 'react';
+import { Modal } from 'react-bootstrap';
 import {
   useAppRuntimeStore,
   writeRuntimeAlert,
   writeRuntimeModalOpen
-} from "../store";
-import ConnectionAlert from "./ConnectionAlert";
-import DeveloperModeAlert from "./DeveloperModeAlert";
-import PasteShortcutAlert from "./PasteShortcutAlert";
+} from '../store';
+import ConnectionAlert from './ConnectionAlert';
+import DeveloperModeAlert from './DeveloperModeAlert';
+import PasteShortcutAlert from './PasteShortcutAlert';
 
-export const AppAlertHost = ({ app }) => {
+export interface AppAlertAppTarget {
+  reconnect: () => void;
+  setInputAreaFocus: () => void;
+}
+
+export interface AppAlertHostProps {
+  app: AppAlertAppTarget;
+}
+
+export const AppAlertHost: React.FC<AppAlertHostProps> = ({ app }) => {
   const activeAlert = useAppRuntimeStore(state => state.activeAlert);
 
   const hideAlert = React.useCallback(() => {
@@ -29,11 +37,11 @@ export const AppAlertHost = ({ app }) => {
   }, [app, hideAlert]);
 
   switch (activeAlert) {
-    case "connection":
+    case 'connection':
       return <ConnectionAlert onDismiss={onReconnect} />;
-    case "developerMode":
+    case 'developerMode':
       return <DeveloperModeAlert onDismiss={hideAlert} />;
-    case "pasteShortcut":
+    case 'pasteShortcut':
       return (
         <Modal
           show
@@ -50,10 +58,6 @@ export const AppAlertHost = ({ app }) => {
     default:
       return null;
   }
-};
-
-AppAlertHost.propTypes = {
-  app: PropTypes.object.isRequired
 };
 
 export default AppAlertHost;
