@@ -1,20 +1,34 @@
-import React from "react";
-import { Modal, OverlayTrigger, Tooltip, Button } from "../bootstrap-compat";
-import { i18n } from "../../js/i18n";
-import "./LiveHelperModal.css";
+import React from 'react';
+import { Modal, OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
+import { i18n } from '../../js/i18n';
+import './LiveHelperModal.css';
 
-const normalizeSec = value => {
+export interface LiveHelperModalProps {
+  show: boolean;
+  onHide: () => void;
+  enabled: boolean;
+  sec: number;
+  onChange: (next: { enabled: boolean; sec: number }) => void;
+}
+
+const normalizeSec = (value: string): number => {
   const sec = Number.parseInt(value, 10);
-  return Math.max(sec, 1);
+  return Math.max(Number.isNaN(sec) ? 1 : sec, 1);
 };
 
-export const LiveHelperModal = ({ show, onHide, enabled, sec, onChange }) => {
+export const LiveHelperModal: React.FC<LiveHelperModalProps> = ({
+  show,
+  onHide,
+  enabled,
+  sec,
+  onChange
+}) => {
   const onEnabledClick = () => {
     onChange({ enabled: !enabled, sec });
   };
 
-  const onSecChange = ({ target: { value } }) => {
-    onChange({ enabled, sec: normalizeSec(value) });
+  const onSecChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ enabled, sec: normalizeSec(event.target.value) });
   };
 
   return (
@@ -24,12 +38,16 @@ export const LiveHelperModal = ({ show, onHide, enabled, sec, onChange }) => {
           placement="top"
           overlay={<Tooltip id="live-helper-hotkey">Alt + r</Tooltip>}
         >
-          <Button active={enabled} onClick={onEnabledClick}>
-            {i18n("liveHelperEnable")}
+          <Button
+            active={enabled}
+            variant={enabled ? 'primary' : 'secondary'}
+            onClick={onEnabledClick}
+          >
+            {i18n('liveHelperEnable')}
           </Button>
         </OverlayTrigger>
         <span className="LiveHelperModal__Body__Text nomouse_command">
-          {i18n("liveHelperSpan")}
+          {i18n('liveHelperSpan')}
         </span>
         <input
           type="number"
@@ -38,12 +56,13 @@ export const LiveHelperModal = ({ show, onHide, enabled, sec, onChange }) => {
           onChange={onSecChange}
         />
         <span className="LiveHelperModal__Body__Text nomouse_command">
-          {i18n("liveHelperSpanSec")}
+          {i18n('liveHelperSpanSec')}
         </span>
         <button
           type="button"
           className="LiveHelperModal__Body__Close close nomouse_command"
           onClick={onHide}
+          aria-label="Close"
         >
           &times;
         </button>

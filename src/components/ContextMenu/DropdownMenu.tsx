@@ -1,10 +1,34 @@
-import cx from "classnames";
-import PropTypes from "prop-types";
-import React from "react";
-import { i18n } from "../../js/i18n";
-import "./DropdownMenu.css";
+import cx from 'classnames';
+import React from 'react';
+import { i18n } from '../../js/i18n';
+import './DropdownMenu.css';
 
-const top = (mouseHeight, menuHeight) => {
+export interface DropdownMenuProps {
+  open: boolean;
+  pageX: number;
+  pageY: number;
+  urlEnabled: boolean;
+  normalEnabled: boolean;
+  selEnabled: boolean;
+  mouseBrowsingEnabled: boolean;
+  selectedText: string;
+  onMenuSelect: (eventKey: string, event: React.SyntheticEvent) => void;
+  onInputHelperClick: (event: React.MouseEvent) => void;
+  onLiveArticleHelperClick: (event: React.MouseEvent) => void;
+  onSettingsClick: (event: React.MouseEvent) => void;
+  onQuickSearchSelect: (eventKey: string, event: React.SyntheticEvent) => void;
+}
+
+interface MenuItemProps {
+  divider?: boolean;
+  eventKey?: string;
+  onSelect?: (eventKey: string, event: React.SyntheticEvent) => void;
+  onClick?: (event: React.MouseEvent) => void;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+const top = (mouseHeight: number, menuHeight: number): number => {
   const pageHeight = window.innerHeight;
 
   // opening menu would pass the bottom of the page
@@ -14,7 +38,7 @@ const top = (mouseHeight, menuHeight) => {
   return mouseHeight;
 };
 
-const left = (mouseWidth, menuWidth) => {
+const left = (mouseWidth: number, menuWidth: number): number => {
   const pageWidth = window.innerWidth;
 
   // opening menu would pass the side of the page
@@ -24,9 +48,9 @@ const left = (mouseWidth, menuWidth) => {
   return mouseWidth;
 };
 
-const normalizeSelectedText = selectedText => {
+const normalizeSelectedText = (selectedText: string): string => {
   if (selectedText.length > 15) {
-    return `${selectedText.substr(0, 15)} …`;
+    return `${selectedText.substring(0, 15)} …`;
   }
   return selectedText;
 };
@@ -34,13 +58,13 @@ const normalizeSelectedText = selectedText => {
 const QUICK_SEARCH = {
   providers: [
     {
-      name: "goo.gl",
-      url: "https://goo.gl/%s"
+      name: 'goo.gl',
+      url: 'https://goo.gl/%s'
     }
   ]
 };
 
-const MenuItem = ({
+const MenuItem: React.FC<MenuItemProps> = ({
   divider,
   eventKey,
   onSelect,
@@ -56,8 +80,8 @@ const MenuItem = ({
     );
   }
 
-  const handleClick = event => {
-    if (onSelect) {
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (onSelect && eventKey !== undefined) {
       onSelect(eventKey, event);
     }
 
@@ -75,16 +99,7 @@ const MenuItem = ({
   );
 };
 
-MenuItem.propTypes = {
-  divider: PropTypes.bool,
-  eventKey: PropTypes.string,
-  onSelect: PropTypes.func,
-  onClick: PropTypes.func,
-  className: PropTypes.string,
-  children: PropTypes.node
-};
-
-export const DropdownMenu = ({
+export const DropdownMenu: React.FC<DropdownMenuProps> = ({
   open,
   pageX,
   pageY,
@@ -99,7 +114,7 @@ export const DropdownMenu = ({
   onSettingsClick,
   onQuickSearchSelect
 }) => {
-  const dropdownMenuRef = React.useRef(null);
+  const dropdownMenuRef = React.useRef<HTMLUListElement>(null);
 
   React.useLayoutEffect(() => {
     const dropdownMenu = dropdownMenuRef.current;
@@ -112,49 +127,50 @@ export const DropdownMenu = ({
     dropdownMenu.style.left = `${left(pageX, dropdownMenu.clientWidth)}px`;
   }, [pageX, pageY]);
 
-  const onContextMenu = event => {
+  const onContextMenu = (event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
   };
 
   return (
     <ul
-      className={cx("dropdown-menu", "DropdownMenu--reset", {
+      className={cx('dropdown-menu', 'DropdownMenu--reset', {
         show: open
       })}
       ref={dropdownMenuRef}
       onContextMenu={onContextMenu}
+      role="menu"
     >
       {selEnabled && (
         <React.Fragment>
           <MenuItem eventKey="copy" onSelect={onMenuSelect}>
-            {i18n("cmenu_copy")}
+            {i18n('cmenu_copy')}
             <span className="DropdownMenu__Item__HotKey">Ctrl+C</span>
           </MenuItem>
           <MenuItem eventKey="copyAnsi" onSelect={onMenuSelect}>
-            {i18n("cmenu_copyAnsi")}
+            {i18n('cmenu_copyAnsi')}
           </MenuItem>
         </React.Fragment>
       )}
       {normalEnabled && (
         <MenuItem eventKey="paste" onSelect={onMenuSelect}>
-          {i18n("cmenu_paste")}
+          {i18n('cmenu_paste')}
           <span className="DropdownMenu__Item__HotKey">Shift+Insert</span>
         </MenuItem>
       )}
       {selEnabled && (
         <MenuItem eventKey="searchGoogle" onSelect={onMenuSelect}>
-          {i18n("cmenu_searchGoogle")}{" "}
+          {i18n('cmenu_searchGoogle')}{' '}
           <span>'{normalizeSelectedText(selectedText)}'</span>
         </MenuItem>
       )}
       {urlEnabled && (
         <React.Fragment>
           <MenuItem eventKey="openUrlNewTab" onSelect={onMenuSelect}>
-            {i18n("cmenu_openUrlNewTab")}
+            {i18n('cmenu_openUrlNewTab')}
           </MenuItem>
           <MenuItem eventKey="copyLinkUrl" onSelect={onMenuSelect}>
-            {i18n("cmenu_copyLinkUrl")}
+            {i18n('cmenu_copyLinkUrl')}
           </MenuItem>
         </React.Fragment>
       )}
@@ -162,16 +178,16 @@ export const DropdownMenu = ({
       {selEnabled && (
         <React.Fragment>
           <MenuItem className="DropdownMenu__Item--quickSearch">
-            {i18n("cmenu_quickSearch")}{" "}
-            <span style={{ float: "right" }}>&#9658;</span>
+            {i18n('cmenu_quickSearch')}{' '}
+            <span style={{ float: 'right' }}>&#9658;</span>
             <ul
               className={cx(
-                "dropdown-menu",
-                "DropdownMenu--reset",
-                "QuickSearchMenu",
+                'dropdown-menu',
+                'DropdownMenu--reset',
+                'QuickSearchMenu',
                 {
-                  "QuickSearchMenu--up": pageY > window.innerHeight / 2,
-                  "QuickSearchMenu--left": pageX > window.innerWidth * 0.7
+                  'QuickSearchMenu--up': pageY > window.innerHeight / 2,
+                  'QuickSearchMenu--left': pageX > window.innerWidth * 0.7
                 }
               )}
             >
@@ -192,46 +208,30 @@ export const DropdownMenu = ({
       {normalEnabled && (
         <React.Fragment>
           <MenuItem eventKey="selectAll" onSelect={onMenuSelect}>
-            {i18n("cmenu_selectAll")}
+            {i18n('cmenu_selectAll')}
             <span className="DropdownMenu__Item__HotKey">Ctrl+A</span>
           </MenuItem>
           <MenuItem
             eventKey="mouseBrowsing"
             onSelect={onMenuSelect}
             className={cx({
-              "DropdownMenu__Item--checked": mouseBrowsingEnabled
+              'DropdownMenu__Item--checked': mouseBrowsingEnabled
             })}
           >
-            {i18n("cmenu_mouseBrowsing")}
+            {i18n('cmenu_mouseBrowsing')}
           </MenuItem>
           <MenuItem onClick={onInputHelperClick}>
-            {i18n("cmenu_showInputHelper")}
+            {i18n('cmenu_showInputHelper')}
           </MenuItem>
           <MenuItem onClick={onLiveArticleHelperClick}>
-            {i18n("cmenu_showLiveArticleHelper")}
+            {i18n('cmenu_showLiveArticleHelper')}
           </MenuItem>
           <MenuItem divider />
         </React.Fragment>
       )}
-      <MenuItem onClick={onSettingsClick}>{i18n("cmenu_settings")}</MenuItem>
+      <MenuItem onClick={onSettingsClick}>{i18n('cmenu_settings')}</MenuItem>
     </ul>
   );
-};
-
-DropdownMenu.propTypes = {
-  open: PropTypes.bool.isRequired,
-  pageX: PropTypes.number.isRequired,
-  pageY: PropTypes.number.isRequired,
-  urlEnabled: PropTypes.bool.isRequired,
-  normalEnabled: PropTypes.bool.isRequired,
-  selEnabled: PropTypes.bool.isRequired,
-  mouseBrowsingEnabled: PropTypes.bool.isRequired,
-  selectedText: PropTypes.string.isRequired,
-  onMenuSelect: PropTypes.func.isRequired,
-  onInputHelperClick: PropTypes.func.isRequired,
-  onLiveArticleHelperClick: PropTypes.func.isRequired,
-  onSettingsClick: PropTypes.func.isRequired,
-  onQuickSearchSelect: PropTypes.func.isRequired
 };
 
 export default DropdownMenu;
